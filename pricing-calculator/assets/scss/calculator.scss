@@ -1,0 +1,386 @@
+@import "../../node_modules/bootstrap/scss/functions";
+@import "../../node_modules/bootstrap/scss/variables";
+@import "../../node_modules/bootstrap/scss/mixins";
+
+.pricing-calculator {
+	color: white;
+	margin: 3rem 0;
+	position: relative;
+
+	/* ==========================
+	   LAYOUT
+	========================== */
+
+	display: flex;
+	flex-direction: column;
+	gap: 2rem;
+
+	@include media-breakpoint-up(lg) {
+		margin: 5em 0;
+	}
+
+	.calculator-step-container {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 2rem;
+
+		@include media-breakpoint-up(lg) {
+			grid-template-columns: 1fr 45%;
+			align-items: flex-start;
+		}
+	}
+
+	/* ==========================
+	   STEPS
+	========================== */
+
+	.steps-container {
+		position: relative;
+		min-height: 420px;
+		transition: height 0.4s ease;
+	}
+
+	.calculator-step {
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.4s ease;
+		position: absolute;
+		inset: 0;
+
+		&.is-active {
+			opacity: 1;
+			pointer-events: auto;
+			position: relative;
+		}
+
+		.step-title {
+			font-weight: 300;
+			margin-bottom: 1rem;
+		}
+
+		.options-group {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+			margin-top: 2rem;
+			width: 100%;
+			max-width: 520px;
+
+			label {
+				position: relative;
+				display: flex;
+				align-items: center;
+				gap: 20px;
+				padding: 16px 20px;
+				width: 100%;
+				border: 1px solid rgba(255,255,255,0.125);
+				font-size: 16px;
+				font-weight: 300;
+				cursor: pointer;
+				transition: all 0.3s ease;
+
+				@include media-breakpoint-up(lg) {
+					font-size: 18px;
+				}
+
+				&:hover {
+					border-color: rgba(255,255,255,0.5);
+				}
+
+				input {
+					position: absolute;
+					opacity: 0;
+					pointer-events: none;
+				}
+
+				/* Radio */
+				.custom-radio {
+					width: 22px;
+					height: 22px;
+					border-radius: 50%;
+					border: 1px solid rgba(255,255,255,0.6);
+					position: relative;
+
+					&::after {
+						content: "";
+						position: absolute;
+						inset: 50%;
+						width: 10px;
+						height: 10px;
+						background: white;
+						border-radius: 50%;
+						transform: translate(-50%, -50%) scale(0);
+						transition: transform 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+					}
+				}
+
+				/* Checkbox */
+				.custom-checkbox {
+					width: 22px;
+					height: 22px;
+					border-radius: 4px;
+					border: 2px solid rgba(255,255,255,0.6);
+					position: relative;
+
+					&::after {
+						content: "";
+						position: absolute;
+						top: 50%;
+						left: 50%;
+						width: 12px;
+						height: 6px;
+						border-left: 2px solid white;
+						border-bottom: 2px solid white;
+						transform: translate(-50%, -50%) rotate(-45deg) scale(0);
+						transition: transform 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+					}
+				}
+
+				&.is-active {
+					border-color: white;
+
+					.custom-radio::after {
+						transform: translate(-50%, -50%) scale(2);
+					}
+
+					.custom-checkbox::after {
+						transform: translate(-50%, -50%) rotate(-45deg) scale(1.25);
+					}
+				}
+			}
+
+			@keyframes brightness-pulse {
+				0% {
+					border-bottom: 1px solid transparent;
+				}
+
+				50% {
+					border-bottom: 1px solid white;
+				}
+
+				100% {
+					border-bottom: 1px solid transparent;
+				}
+			}
+
+			&.long {
+				max-height: 500px;
+				overflow: scroll;
+				border-bottom: 1px solid white;
+				animation: brightness-pulse 2s ease-in-out infinite;
+			}
+		}
+	}
+
+	/* ==========================
+	   SUMMARY
+	========================== */
+
+	.calculator-summary {
+		background: rgba(0,0,0,0.85);
+		padding: 2rem;
+
+		@include media-breakpoint-up(lg) {
+			padding: 4rem;
+		}
+
+		.summary-breakdown {
+			list-style: none;
+			padding: 0;
+			transition: padding 0.3s ease;
+
+			li {
+				display: flex;
+				justify-content: space-between;
+				padding: 12px 0;
+				border-bottom: 1px solid rgba(255,255,255,0.125);
+				font-weight: 300;
+
+				&.is-discount .summary-value {
+					color: #8fd19e;
+				}
+			}
+
+			&.items-6 li,
+			&.items-7 li { padding: 8px 0; }
+
+			&.items-8 li,
+			&.items-9 li { padding: 6px 0; }
+
+			&.items-10 li { padding: 4px 0; }
+		}
+
+		.summary-price {
+			display: flex;
+			justify-content: space-between;
+			align-items: end;
+			padding-bottom: 8px;
+			border-bottom: 1px solid rgba(255,255,255,0.125);
+			margin-top: 1rem;
+			position: relative;
+
+            p {
+                margin-bottom: 0;
+            }
+
+			.price {
+				font-size: 2rem;
+				font-weight: 300;
+				display: inline-block;
+				transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+				will-change: opacity, transform;
+
+				&.is-updating {
+					opacity: 0;
+					transform: translateY(2px);
+				}
+			}
+		}
+
+		.summary-action {
+			margin-top: 2rem;
+			text-align: right;
+
+			button {
+				min-width: 250px;
+				height: 60px;
+				background: transparent;
+				border: 1px solid white;
+				color: white;
+				transition: all 0.3s ease;
+
+				&:hover {
+					background: white;
+					color: black;
+				}
+			}
+		}
+	}
+
+	/* ==========================
+	   NAVIGATION
+	========================== */
+
+	.calculator-nav {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-top: 2rem;
+		position: sticky;
+		bottom: 1.5rem;
+		// background: linear-gradient(transparent, rgba(0,0,0,0.9));
+		padding-top: 1rem;
+
+		button {
+			flex: 1;
+			height: 56px;
+			border: 1px solid white;
+			background: transparent;
+			color: white;
+            max-width: 300px;
+			backdrop-filter: blur(20px);
+			transition: all 0.3s ease;
+
+			&.is-disabled {
+				opacity: 0.25;
+				cursor: not-allowed;
+			}
+
+			&:hover:not(.is-disabled) {
+				background: white;
+				color: black;
+			}
+
+			&.is-hidden {
+				opacity: 0;
+				pointer-events: none;
+			}
+		}
+	}
+
+	/* ==========================
+	PROGRESS BAR
+	========================== */
+
+	.calculator-progress {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-bottom: 1.5rem;
+
+		@include media-breakpoint-up(lg) {
+			margin-bottom: 2.5rem;
+		}
+	}
+
+	.progress-bar {
+		position: relative;
+		width: 100%;
+		height: 2px;
+		background: rgba(255, 255, 255, 0.2);
+		overflow: hidden;
+	}
+
+	.progress-fill {
+		position: absolute;
+		top: 0;
+		left: 0;
+		height: 100%;
+		width: 0%;
+		background: white;
+		transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+
+	/* Optional subtle glow */
+	.progress-fill::after {
+		content: "";
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 24px;
+		height: 100%;
+		background: linear-gradient(
+			90deg,
+			rgba(255,255,255,0),
+			rgba(255,255,255,0.85)
+		);
+	}
+
+	/* Step text */
+	.progress-label {
+		font-size: 12px;
+		letter-spacing: 1px;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.6);
+		margin: 0;
+	}
+
+	.calculator-success {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 9999;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		background: rgb(0 0 0 / 27%);
+		padding: 3rem 2.5rem;
+		width: min(90%, 520px);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.4s ease;
+		color: #ffffff;
+		backdrop-filter: blur(10px);
+		box-shadow: 0px 0px 50px -25px black;
+		border: 1px solid #ffffff1c;
+		font-weight: lighter;
+
+		&:not(.is-hidden) {
+			opacity: 1;
+			pointer-events: auto;
+		}
+	}
+}
