@@ -137,7 +137,7 @@
 .pricing-calculator .calculator-step .options-group label.is-active .custom-checkbox::after {
   transform: translate(-50%, -50%) rotate(-45deg) scale(1.25);
 }
-@keyframes brightness-pulse {
+@keyframes line-brightness-pulse {
   0% {
     border-bottom: 1px solid transparent;
   }
@@ -152,7 +152,7 @@
   max-height: 500px;
   overflow: scroll;
   border-bottom: 1px solid white;
-  animation: brightness-pulse 2s ease-in-out infinite;
+  animation: line-brightness-pulse 2s ease-in-out infinite;
 }
 .pricing-calculator {
   /* ==========================
