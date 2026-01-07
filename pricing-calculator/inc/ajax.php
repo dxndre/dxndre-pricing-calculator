@@ -1,18 +1,29 @@
 <?php
+
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
 /* ==========================================================
-   DOMPDF FACTORY (IMPORTANT)
+   DOMPDF FACTORY
 ========================================================== */
 
 function dx_create_dompdf() {
-	$options = new Options();
 
-	$options->set('isRemoteEnabled', true);        // allow images, links
-	$options->set('isHtml5ParserEnabled', true);  // modern HTML
-	$options->set('defaultFont', 'Outfit');       // fallback font
-	$options->set('isPhpEnabled', false);         // security hardening
+	$options = new Options();
+	$options->set('isRemoteEnabled', true);
+	$options->set('isHtml5ParserEnabled', true);
+	$options->set('defaultFont', 'Outfit');
+
+	// IMPORTANT: local font access
+	$options->set(
+		'fontDir',
+		realpath(DX_PC_PATH . 'assets/fonts')
+	);
+
+	$options->set(
+		'fontCache',
+		realpath(WP_CONTENT_DIR . '/uploads/dompdf-font-cache')
+	);
 
 	return new Dompdf($options);
 }
@@ -43,9 +54,9 @@ function dx_send_quote() {
 	// Build HTML
 	$html = dx_build_quote_html($state);
 
-	// Generate PDF
+	// Create Dompdf
 	$dompdf = dx_create_dompdf();
-	$dompdf->loadHtml($html);
+	$dompdf->loadHtml($html, 'UTF-8');
 	$dompdf->setPaper('A4', 'portrait');
 	$dompdf->render();
 
@@ -120,7 +131,7 @@ function dx_generate_quote_pdf() {
 	$html = dx_build_quote_html($state);
 
 	$dompdf = dx_create_dompdf();
-	$dompdf->loadHtml($html);
+	$dompdf->loadHtml($html, 'UTF-8');
 	$dompdf->setPaper('A4', 'portrait');
 	$dompdf->render();
 
@@ -134,7 +145,7 @@ function dx_generate_quote_pdf() {
 }
 
 /* ==========================================================
-   LEAD LOGGING (OPTIONAL / SAFE)
+   LEAD LOGGING (OPTIONAL)
 ========================================================== */
 
 function dx_log_lead($email, $source) {

@@ -91,7 +91,7 @@ function dx_build_quote_html($state) {
 
 	$logo_url = get_site_icon_url(512);
 	$site_url = home_url('/');
-	$font_dir = realpath(DX_PC_PATH . 'assets/fonts') . DIRECTORY_SEPARATOR;
+	$font_dir = 'file://' . realpath(DX_PC_PATH . 'assets/fonts') . DIRECTORY_SEPARATOR;
 
 	ob_start(); ?>
 <!doctype html>
@@ -100,41 +100,14 @@ function dx_build_quote_html($state) {
 	<meta charset="utf-8">
 	<style>
 		/* ==========================
-		Fonts
-		========================== */
-		@font-face {
-			font-family: 'Space Grotesk';
-			font-weight: 400;
-			src: url('<?= $font_dir ?>SpaceGrotesk-VariableFont_wght.ttf') format('truetype');
-		}
-
-		@font-face {
-			font-family: 'Space Grotesk';
-			font-weight: 600;
-			src: url('<?= $font_dir ?>SpaceGrotesk-VariableFont_wght.ttf') format('truetype');
-		}
-
-		@font-face {
-			font-family: 'Outfit';
-			font-weight: 400;
-			src: url('<?= $font_dir ?>Outfit-VariableFont_wght.ttf') format('truetype');
-		}
-
-		@font-face {
-			font-family: 'Outfit';
-			font-weight: 500;
-			src: url('<?= $font_dir ?>Outfit-VariableFont_wght.ttf') format('truetype');
-		}
-
-		/* ==========================
 		Base
 		========================== */
 
 		body {
 			background: #fff;
 			color: #000;
-			font-family: 'Outfit', Helvetica, Arial, sans-serif;
-			font-size: 16px;
+			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+			font-size: 12px;
 			line-height: 1.6;
 			padding: 40px;
 			max-width: 992px;
@@ -151,20 +124,18 @@ function dx_build_quote_html($state) {
 		========================== */
 
 		h1, h2 {
-			font-family: 'Space Grotesk', Helvetica, Arial, sans-serif;
-			font-weight: 600;
-			letter-spacing: -0.02em;
-			color: #000;
+			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+			font-weight: 700;
 		}
 
 		h1 {
-			font-size: 28px;
+			font-size: 20px;
 			margin-bottom: 24px;
 			margin-top: 0;
 		}
 
 		h4 {
-			margin: 0
+			margin: 0;
 		}
 
 		/* ==========================
@@ -173,7 +144,7 @@ function dx_build_quote_html($state) {
 
 		.logo-header {
 			text-align: right;
-			margin-bottom: 80px;
+			margin-bottom: 60px;
 		}
 
 		.header-table {
@@ -191,8 +162,8 @@ function dx_build_quote_html($state) {
 		}
 
 		.meta-label {
-			font-family: 'Outfit', Helvetica, Arial, sans-serif;
-			font-size: 10px;
+			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+			font-size: 14px;
 			font-weight: 500;
 			letter-spacing: 0.12em;
 			text-transform: uppercase;
@@ -201,7 +172,7 @@ function dx_build_quote_html($state) {
 		}
 
 		.headline {
-			font-family: "Outfit", sans-serif;
+			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
 			text-transform: uppercase;
 			font-weight: 400;
 			color: rgba(0, 0, 0, 0.6666);
@@ -230,8 +201,8 @@ function dx_build_quote_html($state) {
 
 		.items th,
 		.items td {
-			font-family: 'Outfit', Helvetica, Arial, sans-serif;
-			font-size: 16px;
+			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+			font-size: 12px;
 			padding: 10px 0;
 			/* border-bottom: 1px solid rgba(255,255,255,0.2); */
 			text-align: left;
@@ -239,7 +210,7 @@ function dx_build_quote_html($state) {
 		}
 
 		.items th {
-			font-size: 16px;
+			font-size: 12px;
 			font-weight: 500;
 			color: #000;
 		}
@@ -256,8 +227,8 @@ function dx_build_quote_html($state) {
 		.total {
 			margin-top: 24px;
 			text-align: right;
-			font-family: 'Space Grotesk', Helvetica, Arial, sans-serif;
-			font-size: 22px;
+			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+			font-size: 18px;
 			font-weight: 600;
 			letter-spacing: -0.01em;
 		}
@@ -280,13 +251,13 @@ function dx_build_quote_html($state) {
 		}
 
 		.footer-inner h3 {
-			font-size: 20px;
+			font-size: 16px;
 			margin-top: 0;
 			margin-bottom: 12px;
 		}
 
 		.footer p {
-			font-size: 14px;
+			font-size: 10px;
 			margin: 0;
 			margin-bottom: 4px;
 		}
