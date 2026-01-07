@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DXNDRE Pricing Calculator
  * Description: Multi-step project pricing calculator
- * Version: 1.2.0
+ * Version: 1.2.1
  */
 
 if (!defined('ABSPATH')) exit;
@@ -91,6 +91,7 @@ function dx_build_quote_html($state) {
 
 	$logo_url = get_site_icon_url(512);
 	$site_url = home_url('/');
+	$font_dir = realpath(DX_PC_PATH . 'assets/fonts') . DIRECTORY_SEPARATOR;
 
 	ob_start(); ?>
 <!doctype html>
@@ -101,18 +102,27 @@ function dx_build_quote_html($state) {
 		/* ==========================
 		Fonts
 		========================== */
+		@font-face {
+			font-family: 'Space Grotesk';
+			font-weight: 400;
+			src: url('<?= $font_dir ?>SpaceGrotesk-VariableFont_wght.ttf') format('truetype');
+		}
 
 		@font-face {
 			font-family: 'Space Grotesk';
-			font-style: normal;
-			font-weight: 300 700;
+			font-weight: 600;
 			src: url('<?= $font_dir ?>SpaceGrotesk-VariableFont_wght.ttf') format('truetype');
 		}
 
 		@font-face {
 			font-family: 'Outfit';
-			font-style: normal;
-			font-weight: 300 700;
+			font-weight: 400;
+			src: url('<?= $font_dir ?>Outfit-VariableFont_wght.ttf') format('truetype');
+		}
+
+		@font-face {
+			font-family: 'Outfit';
+			font-weight: 500;
 			src: url('<?= $font_dir ?>Outfit-VariableFont_wght.ttf') format('truetype');
 		}
 
@@ -124,7 +134,7 @@ function dx_build_quote_html($state) {
 			background: #fff;
 			color: #000;
 			font-family: 'Outfit', Helvetica, Arial, sans-serif;
-			font-size: 12px;
+			font-size: 16px;
 			line-height: 1.6;
 			padding: 40px;
 			max-width: 992px;
@@ -150,11 +160,21 @@ function dx_build_quote_html($state) {
 		h1 {
 			font-size: 28px;
 			margin-bottom: 24px;
+			margin-top: 0;
+		}
+
+		h4 {
+			margin: 0
 		}
 
 		/* ==========================
 		Header
 		========================== */
+
+		.logo-header {
+			text-align: right;
+			margin-bottom: 80px;
+		}
 
 		.header-table {
 			width: 100%;
@@ -166,6 +186,10 @@ function dx_build_quote_html($state) {
 			padding-bottom: 10px;
 		}
 
+		.header-table td.align-right {
+			text-align: right;
+		}
+
 		.meta-label {
 			font-family: 'Outfit', Helvetica, Arial, sans-serif;
 			font-size: 10px;
@@ -174,6 +198,15 @@ function dx_build_quote_html($state) {
 			text-transform: uppercase;
 			color: #bbbbbb;
 			margin-bottom: 6px;
+		}
+
+		.headline {
+			font-family: "Outfit", sans-serif;
+			text-transform: uppercase;
+			font-weight: 400;
+			color: rgba(0, 0, 0, 0.6666);
+			letter-spacing: 1px;
+			margin: 0;
 		}
 
 		/* ==========================
@@ -187,24 +220,26 @@ function dx_build_quote_html($state) {
 		}
 
 		.items thead {
-			text-transform: uppercase;
+			/* text-transform: uppercase; */
+			border-bottom: 2px solid rgba(0,0,0,0.75);
 		}
 
 		.items tr {
-			border-bottom: 2px solid black;
+			border-bottom: 2px solid rgba(0,0,0,0.25);
 		}
 
 		.items th,
 		.items td {
 			font-family: 'Outfit', Helvetica, Arial, sans-serif;
-			font-size: 12px;
+			font-size: 16px;
 			padding: 10px 0;
-			border-bottom: 1px solid rgba(255,255,255,0.2);
+			/* border-bottom: 1px solid rgba(255,255,255,0.2); */
 			text-align: left;
+			font-weight: 400;
 		}
 
 		.items th {
-			font-size: 11px;
+			font-size: 16px;
 			font-weight: 500;
 			color: #000;
 		}
@@ -238,6 +273,24 @@ function dx_build_quote_html($state) {
 			color: #000;
 		}
 
+		.footer-inner {
+			padding: 20px 28px;
+			border: 1px solid rgba(0,0,0,0.375);
+			max-width: 400px;
+		}
+
+		.footer-inner h3 {
+			font-size: 20px;
+			margin-top: 0;
+			margin-bottom: 12px;
+		}
+
+		.footer p {
+			font-size: 14px;
+			margin: 0;
+			margin-bottom: 4px;
+		}
+
 		@page {
 			margin: 40px;
 		}
@@ -255,16 +308,29 @@ function dx_build_quote_html($state) {
 <body>
 	<div class="container">
 
+		<div class="logo-header">
+			<a href="https://www.dxndre.co.uk" target="_blank">
+				<img src="<?= DX_PC_URL ?>assets/img/dxndre.co.uk-black.png" alt="Logo" width="200">
+			</a>
+		</div>
+
 		<table class="header-table">
 			<tr>
 				<td>
-					<h1>Quote</h1>
+					<pre class="headline">Pricing Calculator</pre>
+					<h1>Online Quotation</h1>
 					<p><strong>D’André Phillips</strong><br>
 					dandrephillips@outlook.com</p>
 				</td>
 				<td align="right">
-					<p class="meta-label">Quote Total</p>
-					<p style="font-size:22px;">£<?= $total ?></p>
+					<td class="align-right">
+						<h4>Quotation Generation Date</h4>
+						<span><?= date('d F Y') ?></span>
+					</td>
+					<td class="align-right">
+						<h4>Quotation Expiry Date</h4>
+						<span><?= $expiry_date ?></span>
+					</td>
 				</td>
 			</tr>
 		</table>
@@ -289,17 +355,20 @@ function dx_build_quote_html($state) {
 		</div>
 
 		<div class="footer">
-			<h3>Important to note</h3>
-			This quotation is valid for 30 days.<br>
-			Payment terms: 33.33% upfront, balance on completion.
+			<div class="footer-inner">
+				<h3>Important to note</h3>
+				<p>This quotation is valid for 30 days. </p>
+				<p>Payment terms: 33.33% upfront, balance on completion. </p>
+			</div>
+			
 		</div>
 
 	</div>
 </body>
 
 <div class="footer">
-	<span>Valid until <?= $expiry_date ?></span>
-	<span class="page-number"></span>
+	
+	<!-- <span class="page-number"></span> -->
 </div>
 
 </html>
