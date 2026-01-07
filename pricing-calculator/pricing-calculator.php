@@ -20,6 +20,15 @@ require_once DX_PC_PATH . 'inc/ajax.php';
 add_shortcode('pricing_calculator', 'dx_pricing_calculator_shortcode');
 add_action('wp_enqueue_scripts', 'dx_pricing_calculator_assets');
 
+// Generate next invoice number
+
+function dx_get_next_invoice_number() {
+	$current = get_option('dx_last_invoice_number', 69); // last used
+	$next = intval($current) + 1;
+	update_option('dx_last_invoice_number', $next);
+	return 'INV' . str_pad($next, 5, '0', STR_PAD_LEFT);
+}
+
 function dx_pricing_calculator_assets() {
 	wp_enqueue_script(
 		'dx-pricing-calculator',
@@ -63,6 +72,25 @@ add_filter('query_vars', function ($vars) {
 function dx_build_quote_html($state) {
 
 	$total = number_format($state['total'], 2);
+	$font_dir = DX_PC_PATH . 'assets/fonts/';
+
+	$generated_at = new DateTime('now', wp_timezone());
+	$expiry_at    = (clone $generated_at)->modify('+30 days');
+
+	$quote_date  = $generated_at->format('d F Y');
+	$expiry_date = $expiry_at->format('d F Y');
+
+	$labels = [
+		'service'  => 'Service',
+		'scope'    => 'Project Scope',
+		'type'     => 'Project Type',
+		'timeline' => 'Delivery Timeline',
+		'features' => 'Additional Features',
+		'extras'   => 'Ongoing Support'
+	];
+
+	$logo_url = get_site_icon_url(512);
+	$site_url = home_url('/');
 
 	ob_start(); ?>
 <!doctype html>
@@ -70,23 +98,63 @@ function dx_build_quote_html($state) {
 <head>
 	<meta charset="utf-8">
 	<style>
+		/* ==========================
+		Fonts
+		========================== */
+
+		@font-face {
+			font-family: 'Space Grotesk';
+			font-style: normal;
+			font-weight: 300 700;
+			src: url('<?= $font_dir ?>SpaceGrotesk-VariableFont_wght.ttf') format('truetype');
+		}
+
+		@font-face {
+			font-family: 'Outfit';
+			font-style: normal;
+			font-weight: 300 700;
+			src: url('<?= $font_dir ?>Outfit-VariableFont_wght.ttf') format('truetype');
+		}
+
+		/* ==========================
+		Base
+		========================== */
+
 		body {
-			background: #121212;
-			color: #ffffff;
-			font-family: Helvetica, Arial, sans-serif;
+			background: #fff;
+			color: #000;
+			font-family: 'Outfit', Helvetica, Arial, sans-serif;
 			font-size: 12px;
+			line-height: 1.6;
 			padding: 40px;
+			max-width: 992px;
+			margin: 0 auto;
 		}
 
 		.container {
-			border: 1px solid #ffffff;
-			padding: 30px;
+			border: 1px solid rgba(255,255,255,0.35);
+			padding: 32px;
+		}
+
+		/* ==========================
+		Headings
+		========================== */
+
+		h1, h2 {
+			font-family: 'Space Grotesk', Helvetica, Arial, sans-serif;
+			font-weight: 600;
+			letter-spacing: -0.02em;
+			color: #000;
 		}
 
 		h1 {
-			font-size: 26px;
-			margin-bottom: 30px;
+			font-size: 28px;
+			margin-bottom: 24px;
 		}
+
+		/* ==========================
+		Header
+		========================== */
 
 		.header-table {
 			width: 100%;
@@ -99,41 +167,87 @@ function dx_build_quote_html($state) {
 		}
 
 		.meta-label {
-			color: #bbbbbb;
+			font-family: 'Outfit', Helvetica, Arial, sans-serif;
 			font-size: 10px;
+			font-weight: 500;
+			letter-spacing: 0.12em;
 			text-transform: uppercase;
-			letter-spacing: 1px;
+			color: #bbbbbb;
+			margin-bottom: 6px;
 		}
+
+		/* ==========================
+		Line items
+		========================== */
 
 		.items {
 			width: 100%;
 			border-collapse: collapse;
-			margin-top: 30px;
+			margin-top: 28px;
+		}
+
+		.items thead {
+			text-transform: uppercase;
+		}
+
+		.items tr {
+			border-bottom: 2px solid black;
 		}
 
 		.items th,
 		.items td {
-			border-bottom: 1px solid #444;
+			font-family: 'Outfit', Helvetica, Arial, sans-serif;
+			font-size: 12px;
 			padding: 10px 0;
+			border-bottom: 1px solid rgba(255,255,255,0.2);
 			text-align: left;
 		}
 
 		.items th {
 			font-size: 11px;
-			color: #cccccc;
+			font-weight: 500;
+			color: #000;
 		}
 
-		.total {
+		.items td:last-child,
+		.items th:last-child {
 			text-align: right;
-			font-size: 20px;
-			margin-top: 20px;
 		}
+
+		/* ==========================
+		Total
+		========================== */
+
+		.total {
+			margin-top: 24px;
+			text-align: right;
+			font-family: 'Space Grotesk', Helvetica, Arial, sans-serif;
+			font-size: 22px;
+			font-weight: 600;
+			letter-spacing: -0.01em;
+		}
+
+		/* ==========================
+		Footer
+		========================== */
 
 		.footer {
 			margin-top: 40px;
 			font-size: 11px;
-			color: #aaaaaa;
 			line-height: 1.6;
+			color: #000;
+		}
+
+		@page {
+			margin: 40px;
+		}
+
+		.page-number:before {
+			content: counter(page);
+		}
+
+		.discount {
+			color: #7fbf9a;
 		}
 	</style>
 </head>
@@ -156,10 +270,10 @@ function dx_build_quote_html($state) {
 		</table>
 
 		<table class="items">
-			<tr>
+			<thead>
 				<th>Description</th>
 				<th align="right">Amount</th>
-			</tr>
+			</thead>
 
 			<?php foreach ($state as $key => $value): 
 				if (is_array($value)) continue; ?>
@@ -175,13 +289,43 @@ function dx_build_quote_html($state) {
 		</div>
 
 		<div class="footer">
+			<h3>Important to note</h3>
 			This quotation is valid for 30 days.<br>
 			Payment terms: 33.33% upfront, balance on completion.
 		</div>
 
 	</div>
 </body>
+
+<div class="footer">
+	<span>Valid until <?= $expiry_date ?></span>
+	<span class="page-number"></span>
+</div>
+
 </html>
 <?php
 	return ob_get_clean();
 }
+
+
+// Dev Preview of PDF quote
+add_action('init', function () {
+	if (!isset($_GET['dx_preview'])) return;
+
+	if (!current_user_can('manage_options')) {
+		wp_die('Unauthorized');
+	}
+
+	$mock_state = [
+		'service' => 'WordPress Development',
+		'scope' => 'Large',
+		'type' => 'Business Website',
+		'features' => ['eCommerce', 'User Accounts'],
+		'timeline' => 'Priority',
+		'extras' => ['Maintenance'],
+		'total' => 8450
+	];
+
+	echo dx_build_quote_html($mock_state);
+	exit;
+});
