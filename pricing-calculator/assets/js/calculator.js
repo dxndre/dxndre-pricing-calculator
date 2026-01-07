@@ -277,23 +277,17 @@
 		// Final submit (summary step only)
 		fetch(DX_PRICING.ajax_url, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-			},
 			body: new URLSearchParams({
-				action: 'dx_send_quote',
-				state: JSON.stringify(state)
+				action: 'dx_finalize_quote',
+				state: JSON.stringify(calculatorState)
 			})
 		})
 		.then(res => res.json())
-		.then(data => {
-			if (!data.success) throw new Error();
-
-			calculator.querySelector('.calculator-step-container')?.classList.add('is-hidden');
-			calculator.querySelector('.calculator-nav')?.classList.add('is-hidden');
-			successEl?.classList.remove('is-hidden');
-		})
-		.catch(() => alert('Something went wrong. Please try again.'));
+		.then(res => {
+			if (res.success) {
+				window.location.href = res.data.url;
+			}
+		});
 	});
 
 	prevBtn?.addEventListener('click', () => {

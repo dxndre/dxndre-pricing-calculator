@@ -3,6 +3,43 @@
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
+// Finalising a quote
+
+add_action('wp_ajax_dx_finalize_quote', 'dx_finalize_quote');
+add_action('wp_ajax_nopriv_dx_finalize_quote', 'dx_finalize_quote');
+
+function dx_finalize_quote() {
+
+	if (empty($_POST['state'])) {
+		wp_send_json_error(['message' => 'Missing state']);
+	}
+
+	$state = json_decode(stripslashes($_POST['state']), true);
+
+	if (!$state || !is_array($state)) {
+		wp_send_json_error(['message' => 'Invalid data']);
+	}
+
+	if (empty($state['total'])) {
+		wp_send_json_error(['message' => 'Missing total']);
+	}
+
+	// Generate invoice number
+	$invoice = dx_get_next_invoice_number();
+
+	// Save quote
+	dx_save_quote(
+		$invoice,
+		$state,
+		$state['total']
+	);
+
+	wp_send_json_success([
+		'invoice' => $invoice,
+		'url'     => home_url("/proposal/$invoice/")
+	]);
+}
+
 /* ==========================================================
    DOMPDF FACTORY
 ========================================================== */

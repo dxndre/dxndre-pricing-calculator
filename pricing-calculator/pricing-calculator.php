@@ -15,6 +15,7 @@ define('DX_PC_PATH', plugin_dir_path(__FILE__));
 define('DX_PC_URL', plugin_dir_url(__FILE__));
 
 require_once DX_PC_PATH . 'inc/config.php';
+require_once DX_PC_PATH . 'inc/quotes.php';
 require_once DX_PC_PATH . 'inc/ajax.php';
 
 add_shortcode('pricing_calculator', 'dx_pricing_calculator_shortcode');
@@ -96,257 +97,255 @@ function dx_build_quote_html($state) {
 	ob_start(); ?>
 <!doctype html>
 <html>
-<head>
-	<meta charset="utf-8">
-	<style>
-		/* ==========================
-		Base
-		========================== */
+	<head>
+		<meta charset="utf-8">
+		<style>
+			/* ==========================
+			Base
+			========================== */
 
-		body {
-			background: #fff;
-			color: #000;
-			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
-			font-size: 12px;
-			line-height: 1.6;
-			padding: 40px;
-			max-width: 992px;
-			margin: 0 auto;
-		}
+			body {
+				background: #fff;
+				color: #000;
+				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-size: 12px;
+				line-height: 1.6;
+				padding: 40px;
+				max-width: 992px;
+				margin: 0 auto;
+			}
 
-		.container {
-			border: 1px solid rgba(255,255,255,0.35);
-			padding: 32px;
-		}
+			.container {
+				border: 1px solid rgba(255,255,255,0.35);
+				padding: 32px;
+			}
 
-		/* ==========================
-		Headings
-		========================== */
+			/* ==========================
+			Headings
+			========================== */
 
-		h1, h2 {
-			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
-			font-weight: 700;
-		}
+			h1, h2 {
+				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-weight: 700;
+			}
 
-		h1 {
-			font-size: 20px;
-			margin-bottom: 24px;
-			margin-top: 0;
-		}
+			h1 {
+				font-size: 20px;
+				margin-bottom: 24px;
+				margin-top: 0;
+			}
 
-		h4 {
-			margin: 0;
-		}
+			h4 {
+				margin: 0;
+			}
 
-		/* ==========================
-		Header
-		========================== */
+			/* ==========================
+			Header
+			========================== */
 
-		.logo-header {
-			text-align: right;
-			margin-bottom: 60px;
-		}
+			.logo-header {
+				text-align: right;
+				margin-bottom: 60px;
+			}
 
-		.header-table {
-			width: 100%;
-			margin-bottom: 40px;
-		}
+			.header-table {
+				width: 100%;
+				margin-bottom: 40px;
+			}
 
-		.header-table td {
-			vertical-align: top;
-			padding-bottom: 10px;
-		}
+			.header-table td {
+				vertical-align: top;
+				padding-bottom: 10px;
+			}
 
-		.header-table td.align-right {
-			text-align: right;
-		}
+			.header-table td.align-right {
+				text-align: right;
+			}
 
-		.meta-label {
-			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
-			font-size: 14px;
-			font-weight: 500;
-			letter-spacing: 0.12em;
-			text-transform: uppercase;
-			color: #bbbbbb;
-			margin-bottom: 6px;
-		}
+			.meta-label {
+				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-size: 14px;
+				font-weight: 500;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: #bbbbbb;
+				margin-bottom: 6px;
+			}
 
-		.headline {
-			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
-			text-transform: uppercase;
-			font-weight: 400;
-			color: rgba(0, 0, 0, 0.6666);
-			letter-spacing: 1px;
-			margin: 0;
-		}
+			.headline {
+				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				text-transform: uppercase;
+				font-weight: 400;
+				color: rgba(0, 0, 0, 0.6666);
+				letter-spacing: 1px;
+				margin: 0;
+			}
 
-		/* ==========================
-		Line items
-		========================== */
+			/* ==========================
+			Line items
+			========================== */
 
-		.items {
-			width: 100%;
-			border-collapse: collapse;
-			margin-top: 28px;
-		}
+			.items {
+				width: 100%;
+				border-collapse: collapse;
+				margin-top: 28px;
+			}
 
-		.items thead {
-			/* text-transform: uppercase; */
-			border-bottom: 2px solid rgba(0,0,0,0.75);
-		}
+			.items thead {
+				/* text-transform: uppercase; */
+				border-bottom: 2px solid rgba(0,0,0,0.75);
+			}
 
-		.items tr {
-			border-bottom: 2px solid rgba(0,0,0,0.25);
-		}
+			.items tr {
+				border-bottom: 2px solid rgba(0,0,0,0.25);
+			}
 
-		.items th,
-		.items td {
-			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
-			font-size: 12px;
-			padding: 10px 0;
-			/* border-bottom: 1px solid rgba(255,255,255,0.2); */
-			text-align: left;
-			font-weight: 400;
-		}
+			.items th,
+			.items td {
+				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-size: 12px;
+				padding: 10px 0;
+				/* border-bottom: 1px solid rgba(255,255,255,0.2); */
+				text-align: left;
+				font-weight: 400;
+			}
 
-		.items th {
-			font-size: 12px;
-			font-weight: 500;
-			color: #000;
-		}
+			.items th {
+				font-size: 12px;
+				font-weight: 500;
+				color: #000;
+			}
 
-		.items td:last-child,
-		.items th:last-child {
-			text-align: right;
-		}
+			.items td:last-child,
+			.items th:last-child {
+				text-align: right;
+			}
 
-		/* ==========================
-		Total
-		========================== */
+			/* ==========================
+			Total
+			========================== */
 
-		.total {
-			margin-top: 24px;
-			text-align: right;
-			font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
-			font-size: 18px;
-			font-weight: 600;
-			letter-spacing: -0.01em;
-		}
+			.total {
+				margin-top: 24px;
+				text-align: right;
+				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-size: 18px;
+				font-weight: 600;
+				letter-spacing: -0.01em;
+			}
 
-		/* ==========================
-		Footer
-		========================== */
+			/* ==========================
+			Footer
+			========================== */
 
-		.footer {
-			margin-top: 40px;
-			font-size: 11px;
-			line-height: 1.6;
-			color: #000;
-		}
+			.footer {
+				margin-top: 40px;
+				font-size: 11px;
+				line-height: 1.6;
+				color: #000;
+			}
 
-		.footer-inner {
-			padding: 20px 28px;
-			border: 1px solid rgba(0,0,0,0.375);
-			max-width: 400px;
-		}
+			.footer-inner {
+				padding: 20px 28px;
+				border: 1px solid rgba(0,0,0,0.375);
+				max-width: 400px;
+			}
 
-		.footer-inner h3 {
-			font-size: 16px;
-			margin-top: 0;
-			margin-bottom: 12px;
-		}
+			.footer-inner h3 {
+				font-size: 16px;
+				margin-top: 0;
+				margin-bottom: 12px;
+			}
 
-		.footer p {
-			font-size: 10px;
-			margin: 0;
-			margin-bottom: 4px;
-		}
+			.footer p {
+				font-size: 10px;
+				margin: 0;
+				margin-bottom: 4px;
+			}
 
-		@page {
-			margin: 40px;
-		}
+			@page {
+				margin: 40px;
+			}
 
-		.page-number:before {
-			content: counter(page);
-		}
+			.page-number:before {
+				content: counter(page);
+			}
 
-		.discount {
-			color: #7fbf9a;
-		}
-	</style>
-</head>
+			.discount {
+				color: #7fbf9a;
+			}
+		</style>
+	</head>
 
-<body>
-	<div class="container">
+	<body>
+		<div class="container">
 
-		<div class="logo-header">
-			<a href="https://www.dxndre.co.uk" target="_blank">
-				<img src="<?= DX_PC_URL ?>assets/img/dxndre.co.uk-black.png" alt="Logo" width="200">
-			</a>
-		</div>
-
-		<table class="header-table">
-			<tr>
-				<td>
-					<pre class="headline">Pricing Calculator</pre>
-					<h1>Online Quotation</h1>
-					<p><strong>D’André Phillips</strong><br>
-					dandrephillips@outlook.com</p>
-				</td>
-				<td align="right">
-					<td class="align-right">
-						<h4>Quotation Generation Date</h4>
-						<span><?= date('d F Y') ?></span>
-					</td>
-					<td class="align-right">
-						<h4>Quotation Expiry Date</h4>
-						<span><?= $expiry_date ?></span>
-					</td>
-				</td>
-			</tr>
-		</table>
-
-		<table class="items">
-			<thead>
-				<th>Description</th>
-				<th align="right">Amount</th>
-			</thead>
-
-			<?php foreach ($state as $key => $value): 
-				if (is_array($value)) continue; ?>
-				<tr>
-					<td><?= ucfirst($key) ?></td>
-					<td align="right"><?= esc_html($value) ?></td>
-				</tr>
-			<?php endforeach; ?>
-		</table>
-
-		<div class="total">
-			<strong>Total £<?= $total ?></strong>
-		</div>
-
-		<div class="footer">
-			<div class="footer-inner">
-				<h3>Important to note</h3>
-				<p>This quotation is valid for 30 days. </p>
-				<p>Payment terms: 33.33% upfront, balance on completion. </p>
+			<div class="logo-header">
+				<a href="https://www.dxndre.co.uk" target="_blank">
+					<img src="<?= DX_PC_URL ?>assets/img/dxndre.co.uk-black.png" alt="Logo" width="200">
+				</a>
 			</div>
-			
+
+			<table class="header-table">
+				<tr>
+					<td>
+						<pre class="headline">Pricing Calculator</pre>
+						<h1>Online Quotation</h1>
+						<p><strong>D’André Phillips</strong><br>
+						dandrephillips@outlook.com</p>
+					</td>
+					<td align="right">
+						<td class="align-right">
+							<h4>Quotation Generation Date</h4>
+							<span><?= date('d F Y') ?></span>
+						</td>
+						<td class="align-right">
+							<h4>Quotation Expiry Date</h4>
+							<span><?= $expiry_date ?></span>
+						</td>
+					</td>
+				</tr>
+			</table>
+
+			<table class="items">
+				<thead>
+					<th>Description</th>
+					<th align="right">Amount</th>
+				</thead>
+
+				<?php foreach ($state as $key => $value): 
+					if (is_array($value)) continue; ?>
+					<tr>
+						<td><?= ucfirst($key) ?></td>
+						<td align="right"><?= esc_html($value) ?></td>
+					</tr>
+				<?php endforeach; ?>
+			</table>
+
+			<div class="total">
+				<strong>Total £<?= $total ?></strong>
+			</div>
+
+			<div class="footer">
+				<div class="footer-inner">
+					<h3>Important to note</h3>
+					<p>This quotation is valid for 30 days. </p>
+					<p>Payment terms: 33.33% upfront, balance on completion. </p>
+				</div>
+				
+			</div>
+
 		</div>
+	</body>
 
+	<div class="footer">
+		
+		<!-- <span class="page-number"></span> -->
 	</div>
-</body>
-
-<div class="footer">
-	
-	<!-- <span class="page-number"></span> -->
-</div>
-
 </html>
 <?php
 	return ob_get_clean();
 }
-
 
 // Dev Preview of PDF quote
 add_action('init', function () {
@@ -368,4 +367,68 @@ add_action('init', function () {
 
 	echo dx_build_quote_html($mock_state);
 	exit;
+});
+
+// URL Routing with invoie number
+
+add_action('init', function () {
+	add_rewrite_rule(
+		'^proposal/([^/]+)/?$',
+		'index.php?dx_proposal=$matches[1]',
+		'top'
+	);
+});
+
+add_filter('query_vars', function ($vars) {
+	$vars[] = 'dx_proposal';
+	return $vars;
+});
+
+// Intercept proposal requests
+
+add_action('template_redirect', function () {
+
+	$invoice = get_query_var('dx_proposal');
+	if (!$invoice) return;
+
+	$quote = dx_get_quote_by_invoice($invoice);
+
+	if (!$quote) {
+		wp_die('Quote not found', '404', ['response' => 404]);
+	}
+
+	$state = json_decode($quote->state, true);
+	$total = number_format($quote->total, 2);
+
+	$generated_at = new DateTime($quote->created_at);
+	$expiry_date  = (new DateTime($quote->expires_at))->format('d F Y');
+
+	// Detect PDF mode
+	$is_pdf = isset($_GET['pdf']);
+
+	include DX_PC_PATH . 'templates/proposal.php';
+	exit;
+});
+
+// Plugin activation hook to flush rewrite rules
+
+register_activation_hook(__FILE__, function () {
+	global $wpdb;
+
+	$table = $wpdb->prefix . 'dx_quotes';
+	$charset = $wpdb->get_charset_collate();
+
+	$sql = "
+		CREATE TABLE $table (
+			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			invoice VARCHAR(20) NOT NULL UNIQUE,
+			state LONGTEXT NOT NULL,
+			total DECIMAL(10,2) NOT NULL,
+			created_at DATETIME NOT NULL,
+			expires_at DATETIME NOT NULL
+		) $charset;
+	";
+
+	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+	dbDelta($sql);
 });
