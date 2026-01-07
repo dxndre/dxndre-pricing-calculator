@@ -24,8 +24,8 @@
 	const calculator = document.querySelector('.pricing-calculator');
 	const steps = document.querySelectorAll('.calculator-step');
 	const stepsContainer = document.querySelector('.steps-container');
-	const breakdownEl = document.querySelector('.summary-breakdown');
-	const totalEl = document.querySelector('.price');
+	const breakdownEls = document.querySelectorAll('.summary-breakdown');
+	const totalEls = document.querySelectorAll('.price');
 	const nextBtn = document.querySelector('.next-step');
 	const prevBtn = document.querySelector('.prev-step');
 
@@ -36,7 +36,8 @@
 	if (!calculator || !steps.length) return;
 
 	let currentStep = 1;
-	const maxStep = steps.length;
+	const PRICING_STEPS = 6;
+	const maxStep = steps.length; // still used for navigation
 
 	/* ==========================
 	   UTILITIES
@@ -122,59 +123,64 @@
 	========================== */
 
 	const updateSummary = () => {
-		if (!breakdownEl || !totalEl) return;
-
-		breakdownEl.innerHTML = '';
 		state.total = 0;
 
+		// Calculate total once
 		stepConfig.forEach(cfg => {
 			const { name, type, prices: priceMap } = cfg;
 
 			if (type === 'radio' && state[name]) {
-				const value = state[name];
-				const price = priceMap[value];
-				state.total += price;
-
-				breakdownEl.insertAdjacentHTML(
-					'beforeend',
-					`<li class="${price < 0 ? 'is-discount' : ''}">
-						<span class="summary-label">${getLabelText(name, value)}</span>
-						<span class="summary-value">${formatPrice(price)}</span>
-					</li>`
-				);
+				state.total += priceMap[state[name]];
 			}
 
 			if (type === 'checkbox' && state[name].length) {
 				state[name].forEach(value => {
-					const price = priceMap[value];
-					state.total += price;
-
-					breakdownEl.insertAdjacentHTML(
-						'beforeend',
-						`<li class="${price < 0 ? 'is-discount' : ''}">
-							<span class="summary-label">${getLabelText(name, value)}</span>
-							<span class="summary-value">${formatPrice(price)}</span>
-						</li>`
-					);
+					state.total += priceMap[value];
 				});
 			}
 		});
 
-		// Fade-only update (no iteration)
-		fadeUpdatePrice(totalEl, state.total);
+		// Update every summary breakdown
+		breakdownEls.forEach(breakdownEl => {
+			breakdownEl.innerHTML = '';
 
-		/* ==========================
-		   SUMMARY DENSITY CLASSES
-		========================== */
+			stepConfig.forEach(cfg => {
+				const { name, type, prices: priceMap } = cfg;
 
-		[...breakdownEl.classList].forEach(cls => {
-			if (cls.startsWith('items-')) breakdownEl.classList.remove(cls);
+				if (type === 'radio' && state[name]) {
+					const price = priceMap[state[name]];
+
+					breakdownEl.insertAdjacentHTML(
+						'beforeend',
+						`<li class="${price < 0 ? 'is-discount' : ''}">
+							<span class="summary-label">
+								${getLabelText(name, state[name])}
+							</span>
+							<span class="summary-value">
+								${formatPrice(price)}
+							</span>
+						</li>`
+					);
+				}
+
+				if (type === 'checkbox' && state[name].length) {
+					state[name].forEach(value => {
+						const price = priceMap[value];
+
+						breakdownEl.insertAdjacentHTML(
+							'beforeend',
+							`<li>
+								<span>${getLabelText(name, value)}</span>
+								<span>${formatPrice(price)}</span>
+							</li>`
+						);
+					});
+				}
+			});
 		});
 
-		const itemCount = breakdownEl.children.length;
-		if (itemCount >= 6) {
-			breakdownEl.classList.add(`items-${itemCount}`);
-		}
+		// Update every price display
+		totalEls.forEach(el => fadeUpdatePrice(el, state.total));
 	};
 
 	/* ==========================
@@ -182,6 +188,12 @@
 	========================== */
 
 	const validateStep = (step) => {
+		// Summary step is always valid
+		if (step > PRICING_STEPS) {
+			setButtonDisabled(nextBtn, false);
+			return;
+		}
+
 		let valid = false;
 
 		switch (step) {
@@ -190,7 +202,7 @@
 			case 3: valid = !!state.type; break;
 			case 4: valid = state.features.length > 0; break;
 			case 5: valid = !!state.timeline; break;
-			default: valid = true;
+			case 6: valid = true; break;
 		}
 
 		setButtonDisabled(nextBtn, !valid);
@@ -211,7 +223,13 @@
 		setButtonDisabled(prevBtn, step === 1);
 		prevBtn?.classList.toggle('is-hidden', step === 1);
 
-		nextBtn.textContent = step === maxStep ? 'Finish' : 'Next';
+		if (step === PRICING_STEPS) {
+			nextBtn.textContent = 'Review summary';
+		} else if (step === maxStep) {
+			nextBtn.textContent = 'Finish';
+		} else {
+			nextBtn.textContent = 'Next';
+		}
 
 		updateProgress(step);
 		validateStep(step);
@@ -256,6 +274,7 @@
 			return;
 		}
 
+		// Final submit (summary step only)
 		fetch(DX_PRICING.ajax_url, {
 			method: 'POST',
 			headers: {
@@ -333,6 +352,67 @@
 			group.addEventListener('scroll', updateState);
 		});
 	};
+
+	// Download generated PDF
+
+	document.querySelector('.download-pdf')?.addEventListener('click', () => {
+		const form = document.createElement('form');
+		form.method = 'POST';
+		form.action = DX_PRICING.ajax_url;
+
+		form.innerHTML = `
+			<input type="hidden" name="action" value="dx_generate_quote_pdf">
+			<input type="hidden" name="state" value='${JSON.stringify(state)}'>
+		`;
+
+		document.body.appendChild(form);
+		form.submit();
+		form.remove();
+	});
+
+	// Email quote button
+
+	const emailModal = document.querySelector('.email-quote-modal');
+	const emailInput = emailModal?.querySelector('input[name="email"]');
+
+	document.querySelector('.email-quote')?.addEventListener('click', () => {
+		emailModal?.classList.remove('is-hidden');
+	});
+
+	document.querySelector('.send-email-confirm')?.addEventListener('click', async () => {
+		const email = emailInput.value.trim();
+		if (!email) return alert('Please enter a valid email');
+
+		const res = await fetch(DX_PRICING.ajax_url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+			},
+			body: new URLSearchParams({
+				action: 'dx_send_quote',
+				state: JSON.stringify({ ...state, contact: { email } })
+			})
+		});
+		const data = await res.json();
+		alert(data.success ? 'Proposal sent!' : 'Something went wrong.');
+		emailModal?.classList.add('is-hidden');
+	});
+
+	// Google Analytics event on final stepp
+
+	document.querySelector('.download-pdf')?.addEventListener('click', () => {
+		gtag('event', 'download_proposal', {
+			event_category: 'Proposal',
+			event_label: state.total
+		});
+	});
+
+	document.querySelector('.email-quote')?.addEventListener('click', () => {
+		gtag('event', 'request_email_quote', {
+			event_category: 'Proposal',
+			event_label: state.total
+		});
+	});
 
 	/* ==========================
 	   INIT

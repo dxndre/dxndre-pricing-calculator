@@ -219,20 +219,63 @@
 					</label>
 				</div>
 			</div>
+
+			<div class="calculator-step" data-step="7">
+				<h2 class="step-title">Your project outline is ready.</h2>
+
+				<p class="step-intro">
+					This estimate reflects the scope, priorities, and level of craftsmanship you’ve selected.
+					It’s a considered starting point - with no obligation and no pressure to proceed.
+				</p>
+
+				<div class="summary-actions">
+					<button class="btn download-pdf">
+						Download proposal (PDF)
+						<i class="fa-solid fa-file-pdf"></i>
+					</button>
+
+					<button class="btn email-quote">
+						Email me a copy
+						<i class="fa-solid fa-envelope"></i>
+					</button>
+
+					<a
+						href="<?php echo esc_url( add_query_arg( 'source', 'pricing-calculator', home_url( '/contact/' ) ) ); ?>"
+						class="btn btn-outline"
+						target="_blank"
+					>
+						Discuss this project
+						<span class="meta">
+							30-minute call · No obligation
+						</span>
+						<i class="fa-solid fa-arrow-up-right-from-square"></i>
+					</a>
+
+					<p class="summary-note">
+						💡 You’ll speak directly with me — no sales process, no intermediaries.
+						Feel free to download or reference this proposal during our conversation.
+					</p>
+				</div>
+
+				<div class="modal email-quote-modal is-hidden">
+					<input type="email" name="email" placeholder="Enter your email" required>
+					<button class="send-email-confirm btn">Send Proposal</button>
+				</div>
+			</div>
 		</div>
 
 		<div class="calculator-summary">
 			<div class="summary-content">
 				<ul class="summary-breakdown"></ul>
 				<div class="summary-price">
-					<p>Your projected estimate</p>
+					<p>Your projected investment</p>
 					<span class="price">£0</span>
 				</div>
 			</div>
 
-			<div class="summary-action">
+			<!-- <div class="summary-action">
 				<button class="send-quote">Send me my qoute</button>
-			</div>
+			</div> -->
 		</div>
 	</div>
 
