@@ -164,7 +164,7 @@
 .pricing-calculator .calculator-step .options-group label.is-active .custom-checkbox::after {
   transform: translate(-50%, -50%) rotate(-45deg) scale(1.25);
 }
-@keyframes line-brightness-pulse {
+@keyframes line-brightness-pulse-bottom {
   0% {
     border-bottom: 1px solid transparent;
   }
@@ -175,15 +175,40 @@
     border-bottom: 1px solid transparent;
   }
 }
+@keyframes line-brightness-pulse-top {
+  0% {
+    border-top: 1px solid transparent;
+  }
+  50% {
+    border-top: 1px solid white;
+  }
+  100% {
+    border-top: 1px solid transparent;
+  }
+}
 .pricing-calculator .calculator-step .options-group.long {
   max-height: 500px;
   overflow: scroll;
   animation: none;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+}
+.pricing-calculator .calculator-step .options-group.long.is-scrollable.at-top {
+  border-bottom-color: white;
+}
+.pricing-calculator .calculator-step .options-group.long.is-scrollable.at-bottom {
+  border-top-color: white;
+  animation: line-brightness-pulse-top 2s ease-in-out infinite;
+  border-bottom-color: transparent;
+}
+.pricing-calculator .calculator-step .options-group.long.is-scrollable.is-middle {
+  border-top-color: rgba(255, 255, 255, 0.4);
+  border-bottom-color: rgba(255, 255, 255, 0.4);
 }
 @media (min-width: 768px) {
   .pricing-calculator .calculator-step .options-group.long {
     border-bottom: 1px solid white;
-    animation: line-brightness-pulse 2s ease-in-out infinite;
+    animation: line-brightness-pulse-bottom 2s ease-in-out infinite;
   }
 }
 .pricing-calculator {

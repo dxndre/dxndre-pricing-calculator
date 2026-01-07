@@ -43,7 +43,11 @@
 	========================== */
 
 	const formatPrice = (value) => {
-		const formatted = Math.abs(value).toFixed(2);
+		const formatted = Math.abs(value).toLocaleString('en-GB', {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		});
+
 		return value < 0 ? `–£${formatted}` : `£${formatted}`;
 	};
 
@@ -299,6 +303,37 @@
 		});
 	};
 
+	// Scroll logic for long lists
+
+	const initScrollableHint = () => {
+		document.querySelectorAll('.options-group.long').forEach(group => {
+
+			const updateState = () => {
+				const scrollTop = group.scrollTop;
+				const scrollHeight = group.scrollHeight;
+				const clientHeight = group.clientHeight;
+
+				const isScrollable = scrollHeight > clientHeight + 1;
+				const atTop = scrollTop <= 1;
+				const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+
+				group.classList.toggle('is-scrollable', isScrollable);
+				group.classList.toggle('at-top', atTop);
+				group.classList.toggle('at-bottom', atBottom);
+				group.classList.toggle(
+					'is-middle',
+					isScrollable && !atTop && !atBottom
+				);
+			};
+
+			// Initial state
+			updateState();
+
+			// Update on scroll
+			group.addEventListener('scroll', updateState);
+		});
+	};
+
 	/* ==========================
 	   INIT
 	========================== */
@@ -307,5 +342,6 @@
 	bindInputs();
 	updateSummary();
 	goToStep(1);
+	initScrollableHint();
 
 })();

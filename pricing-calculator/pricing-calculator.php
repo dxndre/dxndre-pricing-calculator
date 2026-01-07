@@ -48,3 +48,8 @@ function dx_pricing_calculator_shortcode() {
 	include DX_PC_PATH . 'templates/calculator.php';
 	return ob_get_clean();
 }
+
+add_filter('query_vars', function ($vars) {
+	$vars[] = 'ticket_id';
+	return $vars;
+});
