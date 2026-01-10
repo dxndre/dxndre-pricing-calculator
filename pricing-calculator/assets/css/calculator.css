@@ -734,9 +734,18 @@ DX MODAL (AGENCY GRADE)
   color: black;
   background: white;
 }
+.dx-modal-panel button.send-email-confirm {
+  background: white;
+  color: black;
+  border: 1px solid white;
+}
 .dx-modal-panel button.send-email-confirm i {
   transform: scale(1.25);
   margin-left: 0.75em;
+}
+.dx-modal-panel button.send-email-confirm:hover {
+  color: white;
+  background: transparent;
 }
 .dx-modal-panel button.dx-modal-close {
   position: absolute;

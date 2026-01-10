@@ -295,7 +295,7 @@
 							</div>
 						</div>
 						<div class="graphic-side">
-							<img src="<?php echo esc_url( plugin_dir_url( dirname( __FILE__ ) ) . 'assets/img/206.png' ); ?>" alt="">
+							<img src="<?php echo esc_url( plugin_dir_url( dirname( __FILE__ ) ) . 'assets/img/206-crop.png' ); ?>" alt="206 Bus">
 						</div>
 						
 					</div>

@@ -835,9 +835,18 @@ DX MODAL (AGENCY GRADE)
 		}
 
 		&.send-email-confirm {
+			background: white;
+			color: black;
+			border: 1px solid white;
+
 			i {
 				transform: scale(1.25);
 				margin-left: 0.75em;
+			}
+
+			&:hover {
+				color: white;
+				background: transparent;
 			}
 		}
 
