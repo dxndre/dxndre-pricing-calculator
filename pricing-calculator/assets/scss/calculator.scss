@@ -318,6 +318,88 @@
 				max-width: 520px;
 				margin-top: 1.5rem;
 			}
+
+			h4 {
+				margin-bottom: 1em;
+			}
+
+			.invoice-summary {
+				margin-bottom: 3em;
+
+				.copy-field {
+					display: flex;
+				}
+
+				label {
+					font-size: 1.5em;
+					margin-bottom: 8px;
+				}
+
+				input {
+					&[type="text"] {
+						height: 60px;
+						width: 100%;
+						max-width: 400px;
+						border: 1px solid white;
+						background-color: rgba(0,0,0,0.2);
+						color: white;
+						padding: 1em;
+						transition: 0.7s all ease;
+
+						&:focus,
+						&:focus-visible {
+							background: none;
+							outline: none;
+							box-shadow: none;
+							transition: 0.3s all ease;
+						}
+
+						&:hover {
+							background-color: rgba(0,0,0,0.5);
+							transition: 0.3s all ease;
+						}
+					}
+				}
+
+				.btn {
+					height: 60px;
+					margin: 0;
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					gap: 0.5rem;
+					min-height: 56px;
+					padding: 0 1.75rem;
+					font-weight: 400;
+					letter-spacing: 0.02em;
+					border: 1px solid white;
+					background: white;
+					color: black;
+					border-radius: 0;
+					transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+
+					.meta {
+						display: block;
+						font-size: 12px;
+						letter-spacing: 0.08em;
+						text-transform: uppercase;
+						opacity: 0.6;
+						margin-top: 4px;
+					}
+
+					i {
+						font-size: 14px;
+						opacity: 0.8;
+						transform: scale(1.375);
+						margin-left: 8px;
+					}
+
+					&:hover {
+						background: white;
+						color: black;
+					}
+				}
+			}
 		}
 	}
 

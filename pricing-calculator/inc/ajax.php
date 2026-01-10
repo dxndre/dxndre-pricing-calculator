@@ -3,6 +3,12 @@
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
+// Register Activation Hook
+
+require_once DX_PC_PATH . 'inc/install.php';
+
+register_activation_hook(__FILE__, 'dx_pricing_create_tables');
+
 // Finalising a quote
 
 add_action('wp_ajax_dx_finalize_quote', 'dx_finalize_quote');
@@ -196,4 +202,73 @@ function dx_log_lead($email, $source) {
 			'created_at' => current_time('mysql'),
 		]
 	);
+}
+
+// Email Quote
+
+add_action('wp_ajax_dx_email_quote_pdf', 'dx_email_quote_pdf');
+add_action('wp_ajax_nopriv_dx_email_quote_pdf', 'dx_email_quote_pdf');
+
+function dx_email_quote_pdf() {
+
+	$name    = sanitize_text_field($_POST['name'] ?? '');
+	$email   = sanitize_email($_POST['email'] ?? '');
+	$invoice = sanitize_text_field($_POST['invoice'] ?? '');
+
+	if (!$name || !$email || !$invoice) {
+		wp_send_json_error();
+	}
+
+	$quote = dx_get_quote_by_invoice(basename($invoice));
+
+	if (!$quote) {
+		wp_send_json_error();
+	}
+
+	$state = json_decode($quote->state, true);
+
+	// Generate PDF
+	$html   = dx_build_quote_html($state);
+	$dompdf = dx_create_dompdf();
+	$dompdf->loadHtml($html);
+	$dompdf->render();
+
+	$pdf = $dompdf->output();
+
+	$tmp = wp_tempnam($invoice . '.pdf');
+	file_put_contents($tmp, $pdf);
+
+	$headers = [
+		'Content-Type: text/html; charset=UTF-8',
+		'From: DXNDRE <hello@dxndre.co.uk>',
+	];
+
+	$message = "
+		<p>Hi {$name},</p>
+
+		<p>
+			Thank you for taking the time to build your quote — I’ve attached a copy of your proposal for reference.
+		</p>
+
+		<p>
+			If you have any questions or would like to talk through next steps, just reply to this email.
+		</p>
+
+		<p>
+			Best,<br>
+			D’André
+		</p>
+	";
+
+	wp_mail(
+		$email,
+		'Your Project Proposal',
+		$message,
+		$headers,
+		[$tmp]
+	);
+
+	@unlink($tmp);
+
+	wp_send_json_success();
 }

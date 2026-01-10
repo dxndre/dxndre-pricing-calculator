@@ -234,6 +234,62 @@
 		updateProgress(step);
 		validateStep(step);
 		animateHeight();
+
+		// When reaching summary step, generate invoice once
+		if (step === maxStep) {
+			finalizeQuote();
+		}
+	};
+
+	// Finalize quote when arriving on the last step
+
+	let finalized = false;
+	let invoiceUrl = '';
+	let invoiceNumber = '';
+
+	const finalizeQuote = async () => {
+		if (finalized) return;
+
+		const res = await fetch(DX_PRICING.ajax_url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+			body: new URLSearchParams({
+				action: 'dx_finalize_quote',
+				state: JSON.stringify(state)
+			})
+		});
+
+		const data = await res.json();
+
+		if (!data.success) {
+			alert(data.data?.message || 'Could not generate invoice. Please try again.');
+			return;
+		}
+
+		finalized = true;
+		invoiceNumber = data.data.invoice;
+		invoiceUrl = data.data.url;
+
+		const viewBtn = document.getElementById('view-invoice');
+		if (viewBtn && invoiceUrl) {
+			viewBtn.href = invoiceUrl;
+			viewBtn.classList.remove('is-disabled');
+		}
+
+		// Populate the UI
+		const summary = document.getElementById('invoice-summary');
+		const input = document.getElementById('invoice-link');
+		const copyBtn = document.querySelector('.copy-invoice');
+		const meta = document.getElementById('invoice-meta');
+
+		if (summary) summary.classList.remove('is-hidden');
+		if (input) input.value = invoiceUrl;
+		if (meta) meta.textContent = `Invoice reference: ${invoiceNumber}`;
+
+		if (copyBtn) {
+			copyBtn.disabled = false;
+			copyBtn.textContent = copyBtn.dataset.defaultText || 'Copy link';
+		}
 	};
 
 	/* ==========================
@@ -279,7 +335,7 @@
 			method: 'POST',
 			body: new URLSearchParams({
 				action: 'dx_finalize_quote',
-				state: JSON.stringify(calculatorState)
+				state: JSON.stringify(state)
 			})
 		})
 		.then(res => res.json())
@@ -364,34 +420,6 @@
 		form.remove();
 	});
 
-	// Email quote button
-
-	const emailModal = document.querySelector('.email-quote-modal');
-	const emailInput = emailModal?.querySelector('input[name="email"]');
-
-	document.querySelector('.email-quote')?.addEventListener('click', () => {
-		emailModal?.classList.remove('is-hidden');
-	});
-
-	document.querySelector('.send-email-confirm')?.addEventListener('click', async () => {
-		const email = emailInput.value.trim();
-		if (!email) return alert('Please enter a valid email');
-
-		const res = await fetch(DX_PRICING.ajax_url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-			},
-			body: new URLSearchParams({
-				action: 'dx_send_quote',
-				state: JSON.stringify({ ...state, contact: { email } })
-			})
-		});
-		const data = await res.json();
-		alert(data.success ? 'Proposal sent!' : 'Something went wrong.');
-		emailModal?.classList.add('is-hidden');
-	});
-
 	// Google Analytics event on final stepp
 
 	document.querySelector('.download-pdf')?.addEventListener('click', () => {
@@ -406,6 +434,90 @@
 			event_category: 'Proposal',
 			event_label: state.total
 		});
+	});
+
+	// Copy Invoice Reference Link
+
+	document.querySelector('.copy-invoice')?.addEventListener('click', async (e) => {
+		const btn = e.currentTarget;
+		const input = document.getElementById('invoice-link');
+		if (!input || !input.value) return;
+
+		const originalText = btn.dataset.defaultText || btn.textContent;
+
+		try {
+			// Try modern clipboard first
+			if (navigator.clipboard && window.isSecureContext) {
+			await navigator.clipboard.writeText(input.value);
+			} else {
+			// Fallback for http/local
+			input.select();
+			input.setSelectionRange(0, input.value.length);
+			document.execCommand('copy');
+			window.getSelection()?.removeAllRanges();
+			}
+
+			btn.textContent = 'Link copied';
+			btn.disabled = true;
+
+			setTimeout(() => {
+			btn.textContent = originalText;
+			btn.disabled = false;
+			}, 2000);
+		} catch (err) {
+			console.error(err);
+			btn.textContent = 'Failed to copy';
+			setTimeout(() => btn.textContent = originalText, 2000);
+		}
+	});
+
+	// Send quote via Email (Open, Close and Send)
+
+	const emailModal = document.getElementById('email-quote-modal');
+
+	document.querySelector('.email-quote')?.addEventListener('click', () => {
+		if (!finalized) {
+			alert('Just generating your invoice, one moment…');
+			finalizeQuote();
+			return;
+		}
+		emailModal?.classList.remove('is-hidden');
+	});
+
+	document.querySelector('.close-email-modal')?.addEventListener('click', () => {
+		emailModal?.classList.add('is-hidden');
+	});
+
+	document.querySelector('.send-email-confirm')?.addEventListener('click', async () => {
+		const name = emailModal.querySelector('input[name="name"]').value.trim();
+		const email = emailModal.querySelector('input[name="email"]').value.trim();
+
+		if (!name || !email) {
+			alert('Please enter your name and email');
+			return;
+		}
+
+		const res = await fetch(DX_PRICING.ajax_url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+			},
+			body: new URLSearchParams({
+				action: 'dx_email_quote_pdf',
+				name,
+				email,
+				invoice: document.getElementById('invoice-link').value
+			})
+		});
+
+		const data = await res.json();
+
+		if (data.success) {
+			alert('Proposal sent! Check your inbox.');
+			emailModal.classList.add('is-hidden');
+		} else {
+			alert('Something went wrong. Please try again.');
+		}
 	});
 
 	/* ==========================

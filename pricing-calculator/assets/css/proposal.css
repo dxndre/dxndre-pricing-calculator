@@ -1,0 +1,133 @@
+html {
+    background-size: cover;
+    background-image: url(../img/invoice-bg.jpg);
+    background-attachment: fixed;
+}
+
+body.proposal {
+	/* background: #fff; */
+	color: #000;
+	font-family: 'Outfit', system-ui, sans-serif;
+	font-size: 14px;
+	line-height: 1.6;
+	margin: 0;
+	padding: 40px;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+}
+
+.container {
+	max-width: 992px;
+	margin: 0 auto;
+	border: 1px solid rgba(0,0,0,0.15);
+	padding: 32px;
+}
+
+.proposal-inner {
+    background: rgba(255,255,255,0.5);
+    box-shadow: 0px 15px 50px -20px #00000080;
+    width: 100%;
+    max-width: 768px;
+    transition: 0.7s all ease;
+}
+
+.proposal-inner:hover {
+    background: rgba(255,255,255,1);
+    box-shadow: 0px 15px 50px -20px #0000005b;
+    transform: scale(1.005);
+    transition: 0.3s all ease;
+}
+
+
+.logo-header {
+	text-align: right;
+	margin-bottom: 60px;
+}
+
+.headline {
+	font-family: 'Space Grotesk', sans-serif;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: rgba(0,0,0,0.6);
+	margin: 0;
+	font-size: 12px;
+}
+
+.author a {
+    color: black;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0,0,0,0.2);
+    transition: 0.7s all ease;
+}
+
+.author a:hover {
+    border-bottom: 1px solid black;
+    transition: 0.7s all ease;
+}
+
+h1 {
+    font-family: 'Space Grotesk', sans-serif;
+	font-size: 22px;
+    font-weight: 700;
+	margin: 8px 0 24px;
+}
+
+.header-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 40px;
+	margin-bottom: 40px;
+}
+
+.header-meta {
+	display: grid;
+	gap: 16px;
+	text-align: right;
+}
+
+.header-meta h4 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.items {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 28px;
+}
+
+.items th,
+.items td {
+	padding: 10px 0;
+	border-bottom: 2px solid rgba(0,0,0,0.25);
+	font-size: 13px;
+    text-align: left;
+}
+
+.items th:last-child,
+.items td:last-child {
+	text-align: right;
+}
+
+.total {
+	margin-top: 24px;
+	text-align: right;
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.footer {
+	margin-top: 48px;
+}
+
+.footer-inner {
+	border: 1px solid rgba(0,0,0,0.3);
+	padding: 20px 28px;
+	max-width: 420px;
+}
+
+.footer-inner h3 {
+	margin-top: 0;
+}

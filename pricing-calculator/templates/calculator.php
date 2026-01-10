@@ -228,7 +228,59 @@
 					It’s a considered starting point - with no obligation and no pressure to proceed.
 				</p>
 
-				<div class="summary-actions">
+				<div class="invoice-summary is-hidden" id="invoice-summary">
+					<label for="invoice-link">Your invoice reference</label>
+					<p>Keep this handy so you can access your quote anywhere, anytime.</p>
+
+					<div class="copy-field">
+						<input
+							id="invoice-link"
+							type="text"
+							value=""
+							readonly
+						>
+
+						<button
+							type="button"
+							class="btn btn-outline copy-invoice"
+							data-default-text="Copy link"
+							disabled
+						>
+							Copy link
+						</button>
+
+						<a
+							href="#"
+							target="_blank"
+							rel="noopener"
+							class="btn btn-outline view-invoice is-disabled"
+							id="view-invoice"
+						>
+							View
+						</a>
+					</div>
+				</div>
+
+				<!-- Email Modal -->
+				<div class="modal email-quote-modal is-hidden" id="email-quote-modal">
+					<div class="modal-inner">
+						<button type="button" class="close-email-modal" aria-label="Close">×</button>
+
+						<h3>Email your proposal</h3>
+						<p>Enter your details and I’ll send your PDF to your inbox.</p>
+
+						<input type="text" name="name" placeholder="Your name" required>
+						<input type="email" name="email" placeholder="Your email" required>
+
+						<button type="button" class="btn send-email-confirm">
+						Send Proposal
+						</button>
+					</div>
+				</div>
+
+				<h4>What would you like to do next?</h4>
+
+				<div class="summary-actions">			
 					<button class="btn download-pdf">
 						Download proposal (PDF)
 						<i class="fa-solid fa-file-pdf"></i>
@@ -256,11 +308,6 @@
 						Feel free to download or reference this proposal during our conversation.
 					</p>
 				</div>
-
-				<div class="modal email-quote-modal is-hidden">
-					<input type="email" name="email" placeholder="Enter your email" required>
-					<button class="send-email-confirm btn">Send Proposal</button>
-				</div>
 			</div>
 		</div>
 
@@ -272,12 +319,9 @@
 					<span class="price">£0</span>
 				</div>
 			</div>
-
-			<!-- <div class="summary-action">
-				<button class="send-quote">Send me my qoute</button>
-			</div> -->
 		</div>
 	</div>
+
 
     <div class="calculator-success is-hidden">
         <h2>Thank you 🎉</h2>

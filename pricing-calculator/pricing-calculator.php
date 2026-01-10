@@ -107,7 +107,7 @@ function dx_build_quote_html($state) {
 			body {
 				background: #fff;
 				color: #000;
-				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-family: Helvetica, Arial, sans-serif;
 				font-size: 12px;
 				line-height: 1.6;
 				padding: 40px;
@@ -125,7 +125,7 @@ function dx_build_quote_html($state) {
 			========================== */
 
 			h1, h2 {
-				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-family: Helvetica, Arial, sans-serif;
 				font-weight: 700;
 			}
 
@@ -163,7 +163,7 @@ function dx_build_quote_html($state) {
 			}
 
 			.meta-label {
-				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-family: Helvetica, Arial, sans-serif;
 				font-size: 14px;
 				font-weight: 500;
 				letter-spacing: 0.12em;
@@ -173,7 +173,7 @@ function dx_build_quote_html($state) {
 			}
 
 			.headline {
-				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-family: Helvetica, Arial, sans-serif;
 				text-transform: uppercase;
 				font-weight: 400;
 				color: rgba(0, 0, 0, 0.6666);
@@ -202,7 +202,7 @@ function dx_build_quote_html($state) {
 
 			.items th,
 			.items td {
-				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-family: Helvetica, Arial, sans-serif;
 				font-size: 12px;
 				padding: 10px 0;
 				/* border-bottom: 1px solid rgba(255,255,255,0.2); */
@@ -228,7 +228,7 @@ function dx_build_quote_html($state) {
 			.total {
 				margin-top: 24px;
 				text-align: right;
-				font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
+				font-family: Helvetica, Arial, sans-serif;
 				font-size: 18px;
 				font-weight: 600;
 				letter-spacing: -0.01em;
@@ -282,7 +282,7 @@ function dx_build_quote_html($state) {
 
 			<div class="logo-header">
 				<a href="https://www.dxndre.co.uk" target="_blank">
-					<img src="<?= DX_PC_URL ?>assets/img/dxndre.co.uk-black.png" alt="Logo" width="200">
+					<img src="<?= DX_PC_URL ?>assets/img/dxndre.co.uk-black.png" alt="Logo" width="150">
 				</a>
 			</div>
 
@@ -338,10 +338,10 @@ function dx_build_quote_html($state) {
 		</div>
 	</body>
 
-	<div class="footer">
-		
-		<!-- <span class="page-number"></span> -->
-	</div>
+	<footer>
+		<span>Invoice <?= esc_html($invoice); ?></span>
+		<span class="page-number"></span>
+	</footer>
 </html>
 <?php
 	return ob_get_clean();
