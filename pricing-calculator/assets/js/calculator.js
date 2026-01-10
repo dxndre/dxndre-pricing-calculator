@@ -28,16 +28,32 @@
 	const totalEls = document.querySelectorAll('.price');
 	const nextBtn = document.querySelector('.next-step');
 	const prevBtn = document.querySelector('.prev-step');
-
+	const emailModal = document.getElementById('email-quote-modal');
 	const progressFill = document.querySelector('.progress-fill');
 	const progressLabel = document.querySelector('.progress-label');
 	const successEl = calculator?.querySelector('.calculator-success');
+	
 
 	if (!calculator || !steps.length) return;
 
 	let currentStep = 1;
 	const PRICING_STEPS = 6;
 	const maxStep = steps.length; // still used for navigation
+
+	/* ==========================
+	TELEPORT MODAL TO <body>
+	========================== */
+
+	document.addEventListener('DOMContentLoaded', () => {
+		const modal = document.getElementById('email-quote-modal');
+		if (!modal) return;
+
+		// Prevent moving it more than once
+		if (!modal.dataset.teleported) {
+			document.body.appendChild(modal);
+			modal.dataset.teleported = 'true';
+		}
+	});
 
 	/* ==========================
 	   UTILITIES
@@ -288,7 +304,6 @@
 
 		if (copyBtn) {
 			copyBtn.disabled = false;
-			copyBtn.textContent = copyBtn.dataset.defaultText || 'Copy link';
 		}
 	};
 
@@ -438,87 +453,202 @@
 
 	// Copy Invoice Reference Link
 
-	document.querySelector('.copy-invoice')?.addEventListener('click', async (e) => {
+	document.querySelector('.copy-invoice')?.addEventListener('click', (e) => {
 		const btn = e.currentTarget;
 		const input = document.getElementById('invoice-link');
-		if (!input || !input.value) return;
+		const icon = btn.querySelector('i');
 
-		const originalText = btn.dataset.defaultText || btn.textContent;
+		if (!input || !icon) return;
 
-		try {
-			// Try modern clipboard first
-			if (navigator.clipboard && window.isSecureContext) {
-			await navigator.clipboard.writeText(input.value);
-			} else {
-			// Fallback for http/local
-			input.select();
-			input.setSelectionRange(0, input.value.length);
-			document.execCommand('copy');
-			window.getSelection()?.removeAllRanges();
-			}
+		const text = input.value;
 
-			btn.textContent = 'Link copied';
+		const showSuccess = () => {
+			icon.classList.remove('fa-copy');
+			icon.classList.add('fa-check');
 			btn.disabled = true;
 
 			setTimeout(() => {
-			btn.textContent = originalText;
-			btn.disabled = false;
-			}, 2000);
+				icon.classList.remove('fa-check');
+				icon.classList.add('fa-copy');
+				btn.disabled = false;
+			}, 1800);
+		};
+
+		const showError = () => {
+			icon.classList.remove('fa-copy');
+			icon.classList.add('fa-xmark');
+
+			setTimeout(() => {
+				icon.classList.remove('fa-xmark');
+				icon.classList.add('fa-copy');
+			}, 1800);
+		};
+
+		// Modern clipboard API (HTTPS only)
+		if (navigator.clipboard && window.isSecureContext) {
+			navigator.clipboard.writeText(text)
+				.then(showSuccess)
+				.catch(showError);
+			return;
+		}
+
+		// Fallback for HTTP / local / Safari
+		try {
+			input.focus();
+			input.select();
+			document.execCommand('copy');
+			showSuccess();
 		} catch (err) {
-			console.error(err);
-			btn.textContent = 'Failed to copy';
-			setTimeout(() => btn.textContent = originalText, 2000);
+			console.error('Copy failed', err);
+			showError();
 		}
 	});
 
 	// Send quote via Email (Open, Close and Send)
 
-	const emailModal = document.getElementById('email-quote-modal');
-
-	document.querySelector('.email-quote')?.addEventListener('click', () => {
+	document.querySelector('.email-quote')?.addEventListener('click', async () => {
 		if (!finalized) {
-			alert('Just generating your invoice, one moment…');
-			finalizeQuote();
-			return;
+			await finalizeQuote();
 		}
+
 		emailModal?.classList.remove('is-hidden');
 	});
 
-	document.querySelector('.close-email-modal')?.addEventListener('click', () => {
-		emailModal?.classList.add('is-hidden');
+	document.addEventListener('click', (e) => {
+		const modal = document.getElementById('email-quote-modal');
+		if (!modal) return;
+
+		if (
+			!modal.classList.contains('is-hidden') &&
+			!modal.contains(e.target) &&
+			!e.target.closest('.email-quote')
+		) {
+			modal.classList.add('is-hidden');
+		}
 	});
 
 	document.querySelector('.send-email-confirm')?.addEventListener('click', async () => {
-		const name = emailModal.querySelector('input[name="name"]').value.trim();
-		const email = emailModal.querySelector('input[name="email"]').value.trim();
+		const modal = document.getElementById('email-quote-modal');
+		if (!modal) return;
 
-		if (!name || !email) {
-			alert('Please enter your name and email');
+		const sendContent = modal.querySelector('.send-content');
+		const sentContent = modal.querySelector('.sent-content');
+		const errorEl = modal.querySelector('.form-error');
+
+		const nameInput = modal.querySelector('input[name="name"]');
+		const emailInput = modal.querySelector('input[name="email"]');
+
+		const name = nameInput.value.trim();
+		const email = emailInput.value.trim();
+
+		// Reset state
+		errorEl?.classList.add('is-hidden');
+		nameInput.classList.remove('is-invalid');
+		emailInput.classList.remove('is-invalid');
+
+		let hasError = false;
+
+		if (!name) {
+			nameInput.classList.add('is-invalid');
+			hasError = true;
+		}
+
+		if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+			emailInput.classList.add('is-invalid');
+			hasError = true;
+		}
+
+		if (hasError) {
+			errorEl?.classList.remove('is-hidden');
 			return;
 		}
 
-		const res = await fetch(DX_PRICING.ajax_url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-			},
-			body: new URLSearchParams({
-				action: 'dx_email_quote_pdf',
-				name,
-				email,
-				invoice: document.getElementById('invoice-link').value
-			})
-		});
+		try {
+			const res = await fetch(DX_PRICING.ajax_url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+				},
+				body: new URLSearchParams({
+					action: 'dx_email_quote_pdf',
+					name,
+					email,
+					invoice: document.getElementById('invoice-link')?.value || ''
+				})
+			});
 
-		const data = await res.json();
+			const data = await res.json();
 
-		if (data.success) {
-			alert('Proposal sent! Check your inbox.');
-			emailModal.classList.add('is-hidden');
-		} else {
-			alert('Something went wrong. Please try again.');
+			if (!data.success) {
+				throw new Error('Email send failed');
+			}
+
+			// ✅ Success state
+			sendContent.style.display = 'none';
+			sentContent.style.display = 'block';
+
+		} catch (err) {
+			errorEl?.classList.remove('is-hidden');
+			emailInput.classList.add('is-invalid');
 		}
 	});
+
+	/* ==========================
+	DX MODAL CONTROLLER
+	========================== */
+
+	(() => {
+		const modal = document.getElementById('email-quote-modal');
+		if (!modal) return;
+
+		const openButtons = document.querySelectorAll('.email-quote');
+		const closeBtn = modal.querySelector('.dx-modal-close');
+		const backdrop = modal.querySelector('.dx-modal-backdrop');
+		const finishBtn = modal.querySelector('.dx-finish');
+
+		let lastFocusedElement = null;
+
+		const openModal = () => {
+			lastFocusedElement = document.activeElement;
+
+			modal.classList.remove('is-hidden');
+			requestAnimationFrame(() => {
+				modal.classList.add('is-visible');
+			});
+
+			document.body.style.overflow = 'hidden';
+
+			const firstInput = modal.querySelector('input');
+			firstInput?.focus();
+		};
+
+		const closeModal = () => {
+			modal.classList.remove('is-visible');
+
+			setTimeout(() => {
+				modal.classList.add('is-hidden');
+				document.body.style.overflow = '';
+				lastFocusedElement?.focus();
+			}, 400);
+		};
+
+		openButtons.forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				e.preventDefault();
+				openModal();
+			});
+		});
+
+		closeBtn?.addEventListener('click', closeModal);
+		backdrop?.addEventListener('click', closeModal);
+		finishBtn?.addEventListener('click', closeModal);
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && modal.classList.contains('is-visible')) {
+				closeModal();
+			}
+		});
+	})();
 
 	/* ==========================
 	   INIT

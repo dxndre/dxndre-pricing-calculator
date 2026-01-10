@@ -243,10 +243,10 @@
 						<button
 							type="button"
 							class="btn btn-outline copy-invoice"
-							data-default-text="Copy link"
-							disabled
+							aria-label="Copy link"
+							aria-live="polite"
 						>
-							Copy link
+							<i class="fa-solid fa-copy"></i>
 						</button>
 
 						<a
@@ -257,24 +257,47 @@
 							id="view-invoice"
 						>
 							View
+							<i class="fa-solid fa-file-invoice"></i>
 						</a>
 					</div>
 				</div>
 
 				<!-- Email Modal -->
-				<div class="modal email-quote-modal is-hidden" id="email-quote-modal">
-					<div class="modal-inner">
-						<button type="button" class="close-email-modal" aria-label="Close">×</button>
+				<div class="dx-modal email-quote-modal is-hidden" id="email-quote-modal">
+					<div class="dx-modal-backdrop"></div>
 
-						<h3>Email your proposal</h3>
-						<p>Enter your details and I’ll send your PDF to your inbox.</p>
+					<div class="dx-modal-panel" role="dialog" aria-modal="true">
+						<button type="button" class="dx-modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
 
-						<input type="text" name="name" placeholder="Your name" required>
-						<input type="email" name="email" placeholder="Your email" required>
+						<div class="content-side">
+							<div class="send-content">
+								<h3>Email your proposal</h3>
+								<p>Enter your details and I’ll send your PDF to your inbox.</p>
 
-						<button type="button" class="btn send-email-confirm">
-						Send Proposal
-						</button>
+								<span class="form-error is-hidden" role="alert">
+									<i class="fa-solid fa-circle-exclamation"></i> Please double-check the form and try again.
+								</span>
+
+								<input type="text" name="name" placeholder="Your Name" required>
+								<input type="email" name="email" placeholder="Your Email" required>
+
+								<button type="button" class="btn send-email-confirm">
+									Send Proposal <i class="fa-solid fa-paper-plane"></i>
+								</button>
+							</div>
+							<div class="sent-content">
+								<h3>Proposal Sent</h3>
+								<p>Brilliant - your proposal has been sent! Please check your inbox.</p>
+
+								<button type="button" class="btn dx-finish">
+									Finish <i class="fa-solid fa-check"></i>
+								</button>
+							</div>
+						</div>
+						<div class="graphic-side">
+							<img src="<?php echo esc_url( plugin_dir_url( dirname( __FILE__ ) ) . 'assets/img/206.png' ); ?>" alt="">
+						</div>
+						
 					</div>
 				</div>
 
