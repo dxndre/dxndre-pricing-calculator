@@ -55,21 +55,58 @@
 
 		<table class="items">
 			<thead>
-				<tr>
-					<th>Description</th>
-					<th>Amount</th>
-				</tr>
-			</thead>
+                <tr>
+                    <th class="col-category">Description</th>
+                    <th class="col-selection"></th>
+                    <th class="col-amount">Amount</th>
+                </tr>
+            </thead>
 
 			<tbody>
-				<?php foreach ($state as $key => $value) :
-					if (is_array($value)) continue; ?>
-					<tr>
-						<td><?= esc_html(ucfirst($key)); ?></td>
-						<td>£<?= esc_html($value); ?></td>
-					</tr>
-				<?php endforeach; ?>
-			</tbody>
+                <?php
+                    $pricing = dx_pricing_config();
+
+                    $label_map = [
+                        'service'  => 'Service',
+                        'scope'    => 'Scope',
+                        'type'     => 'Project type',
+                        'timeline' => 'Timeline',
+                    ];
+
+                    $config_map = [
+                        'service'  => 'services',
+                        'scope'    => 'scope',
+                        'type'     => 'type',
+                        'timeline' => 'timeline',
+                    ];
+
+                    // Helper: turn "landing_page" → "Landing page"
+                    $pretty = fn($v) => ucwords(str_replace('_', ' ', $v));
+                ?>
+
+                <?php foreach ($label_map as $key => $label) :
+
+                    if (empty($state[$key])) continue;
+
+                    $value   = $state[$key];
+                    $section = $config_map[$key];
+                    $amount  = $pricing[$section][$value] ?? 0;
+                ?>
+                <tr>
+                    <td class="category">
+                        <?= esc_html($label); ?>
+                    </td>
+
+                    <td class="selection">
+                        <?= esc_html($pretty($value)); ?>
+                    </td>
+
+                    <td class="amount">
+                        £<?= number_format($amount, 2); ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
 		</table>
 
 		<div class="total">

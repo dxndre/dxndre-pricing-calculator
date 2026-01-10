@@ -15,6 +15,7 @@ body.proposal {
     min-height: 100vh;
     display: flex;
     align-items: center;
+    transition: 0.5s all ease;
 }
 
 .container {
@@ -25,7 +26,7 @@ body.proposal {
 }
 
 .proposal-inner {
-    /* background: rgba(255,255,255,0.5); */
+    background: rgba(255,255,255,0.75);
     box-shadow: 0px 15px 50px -20px #00000080;
     width: 100%;
     max-width: 768px;
@@ -33,6 +34,13 @@ body.proposal {
     opacity: 0; /* important */
 	animation: proposalReveal 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards 0.25s;
 	will-change: opacity, transform, filter;
+}
+
+@media screen and (min-width: 768px) {
+    .proposal-inner {
+        background: transparent;
+        transition: 0.3s all ease;
+    }
 }
 
 .proposal-inner:hover {
@@ -132,6 +140,28 @@ h1 {
 	border-bottom: 2px solid rgba(0,0,0,0.25);
 	font-size: 13px;
     text-align: left;
+}
+
+.items thead tr {
+	border-bottom: 2px solid rgba(0, 0, 0, 0.72);
+}
+
+.items th {
+	text-transform: uppercase;
+	font-size: 11px;
+	letter-spacing: 0.10em;
+	color: rgba(0, 0, 0, 0.62);
+	font-weight: 650;
+	padding: 12px 0 10px;
+	text-align: left;
+}
+
+.items td {
+	padding: 12px 0;
+	border-bottom: 2px solid rgba(0, 0, 0, 0.16);
+	font-size: 13px;
+	text-align: left;
+	vertical-align: middle;
 }
 
 .items th:last-child,
