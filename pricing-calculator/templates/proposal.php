@@ -123,5 +123,11 @@
 
 	</div>
 
+	<div class="next-steps">
+		<h3>Let’s turn this estimate into a real plan.</h3>
+		<p>This estimate gives us a strong starting point. The next step is a short call to confirm scope, timelines, and priorities — ensuring everything aligns before work begins.</p>
+		<a href="https://calendly.com/dxndre" target="_blank">Confirm Scope & Book Call</a>
+		<span>Nothing proceeds without your approval.</span>
+	</div>
 </body>
 </html>

@@ -14,7 +14,9 @@ body.proposal {
 	padding: 40px;
     min-height: 100vh;
     display: flex;
+	flex-direction: column;
     align-items: center;
+	justify-content: center;
     transition: 0.5s all ease;
 }
 
@@ -216,4 +218,44 @@ h1 {
 		transform: none;
 		filter: none;
 	}
+}
+
+.next-steps {
+	text-align: center;
+	margin-top: 2em;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	align-items: center;
+}
+
+.next-steps h3 {
+	font-size: 2em;
+	margin-bottom: 0;
+}
+
+.next-steps p {
+	margin: 0;
+	font-size: 16px;
+	max-width: 500px;
+}
+
+.next-steps a {
+	width: 300px;
+	height: 60px;
+	font-size: 18px;
+	background: white;
+	color: black;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	text-decoration: none;
+	transition: 0.7s all ease;
+}
+
+.next-steps a:hover {
+	background: black;
+	color: white;
+	transform: scale(1.025);
+	transition: 0.3s all ease;
 }
