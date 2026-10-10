@@ -19,14 +19,15 @@
 
 		<header class="logo-header">
 			<a href="<?= esc_url(home_url('/')); ?>" target="_blank" rel="noopener">
-				<img src="<?= DX_PC_URL ?>assets/img/dxndre.co.uk-black.png" alt="DXNDRE" width="150">
+				<strong style="font-size:24px;color:#000">dxndre.co.uk</strong>
 			</a>
 		</header>
 
 		<section class="header-grid">
 			<div>
 				<pre class="headline">Pricing Calculator</pre>
-				<h1>Online Quotation</h1>
+				<h1>Online Estimate</h1>
+				<?php if (!empty($state['client_name']) || !empty($state['client_company'])) : ?><p>Prepared for <?= esc_html(trim(($state['client_name'] ?? '').' · '.($state['client_company'] ?? ''), ' ·')); ?></p><?php endif; ?>
 
 				<p class="author">
 					<strong>D’André Phillips</strong><br>
@@ -47,7 +48,7 @@
 				</div>
 
 				<div>
-					<h4>Invoice</h4>
+					<h4>Estimate reference</h4>
 					<span><?= esc_html($invoice); ?></span>
 				</div>
 			</div>
@@ -63,61 +64,20 @@
             </thead>
 
 			<tbody>
-                <?php
-                    $pricing = dx_pricing_config();
-
-                    $label_map = [
-                        'service'  => 'Service',
-                        'scope'    => 'Scope',
-                        'type'     => 'Project type',
-                        'timeline' => 'Timeline',
-                    ];
-
-                    $config_map = [
-                        'service'  => 'services',
-                        'scope'    => 'scope',
-                        'type'     => 'type',
-                        'timeline' => 'timeline',
-                    ];
-
-                    // Helper: turn "landing_page" → "Landing page"
-                    $pretty = fn($v) => ucwords(str_replace('_', ' ', $v));
-                ?>
-
-                <?php foreach ($label_map as $key => $label) :
-
-                    if (empty($state[$key])) continue;
-
-                    $value   = $state[$key];
-                    $section = $config_map[$key];
-                    $amount  = $pricing[$section][$value] ?? 0;
-                ?>
-                <tr>
-                    <td class="category">
-                        <?= esc_html($label); ?>
-                    </td>
-
-                    <td class="selection">
-                        <?= esc_html($pretty($value)); ?>
-                    </td>
-
-                    <td class="amount">
-                        £<?= number_format($amount, 2); ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
+				<?php echo dx_estimate_breakdown_html($state, 3); ?>
+			</tbody>
 		</table>
 
+		<?php if (!isset($state['estimate_breakdown']) && !isset($state['retainer_estimate'])) : ?><p>This estimate was generated using earlier pricing. Individual item prices were not saved; the original estimate total is retained.</p><?php endif; ?>
 		<div class="total">
-			<strong>Total £<?= esc_html($total); ?></strong>
+			<strong><?= ($state['service'] ?? '') === 'retainer' ? 'Monthly estimate' : 'Total' ?> £<?= esc_html($total); ?><?= ($state['service'] ?? '') === 'retainer' ? ' / month' : '' ?></strong>
 		</div>
 
 		<footer class="footer">
 			<div class="footer-inner">
 				<h3>Important to note</h3>
 				<p>This quotation is valid for 30 days.</p>
-				<p>Payment terms: 33.33% upfront, balance on completion.</p>
+				<p><?= ($state['service'] ?? '') === 'retainer' ? 'Hours are shared across selected categories and expire monthly. Additional landing-page capacity is restricted to landing-page work. Scheduling targets do not guarantee completion. Overages, major builds and incident work require separate agreement.' : 'Payment terms: 33.33% upfront, balance on completion.' ?></p>
 			</div>
 		</footer>
 

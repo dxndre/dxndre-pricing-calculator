@@ -1,5 +1,10 @@
+<div class="calculator-hero-media" aria-hidden="true"><img class="calculator-beach" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/10/calculator-bus-electroliners-v2.png')); ?>" alt="" decoding="async" fetchpriority="high"></div>
+<div class="calculator-glow calculator-glow--off-black" aria-hidden="true"></div>
 <div class="pricing-calculator" data-step="1">
 
+
+	<div class="calculator-step-container">
+		<div class="calculator-question-panel">
     <div class="calculator-progress">
 		<div class="progress-bar">
 			<span class="progress-fill"></span>
@@ -7,53 +12,63 @@
 		<pre class="progress-label headline"></pre>
 	</div>
 
-	<div class="calculator-step-container">
 		<div class="steps-container">
 
-			<div class="calculator-step is-active" data-step="1">
-				<h2 class="step-title">1. What service are you looking for?</h2>
+<div class="calculator-step is-active" data-step="category">
+	<h2 class="step-title">Where would you like to start?</h2>
+	<p class="step-intro">Choose the kind of support you’re looking for.</p>
+	<div class="options-group options-group--categories">
+		<label class="category-card category-card--digital">
+			<img class="category-card__image" src="<?php echo esc_url(get_the_post_thumbnail_url(229, 'large')); ?>" alt="" loading="eager">
+			<input type="radio" name="service_category" value="digital" aria-label="Digital services"><span class="custom-radio"></span>
+			<span class="category-card__content"><span class="category-card__eyebrow">DESIGN &amp; TECHNOLOGY</span><strong>Digital services</strong><span class="category-card__description">Considered design. Powerful websites.<br>Ongoing technical support.</span><span class="category-card__action">Plan your project <span aria-hidden="true">↗</span></span></span>
+		</label>
+		<label class="category-card category-card--fitness">
+			<img class="category-card__image" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt="" loading="eager">
+			<input type="radio" name="service_category" value="fitness" aria-label="Fitness coaching"><span class="custom-radio"></span>
+			<span class="category-card__content"><span class="category-card__eyebrow">N118 FITNESS <span class="category-card__badge">Coming soon</span></span><strong>Fitness coaching</strong><span class="category-card__description">Personal coaching built around<br>your goals, your pace and your potential.</span><span class="category-card__action">Discover what’s next <span aria-hidden="true">↗</span></span></span>
+		</label>
+	</div>
+<div class="calculator-intro-fields"><button type="button" class="personalisation-toggle" aria-expanded="false" aria-controls="personalisation-fields">Personalise your estimate (optional)</button><div id="personalisation-fields" hidden><h3 class="calculator-intro-fields__title">Make this estimate yours.</h3><p>Add your name and company to personalise your estimate. It's completely optional, and you can always add these details later.</p><div class="calculator-intro-fields__grid"><div><label for="calculator-client-name">Your name (optional)</label><input id="calculator-client-name" name="client_name" type="text" placeholder="e.g. D'André"></div><div><label for="calculator-client-company">Company / organisation (optional)</label><input id="calculator-client-company" name="client_company" type="text" placeholder="e.g. DXNDRE Studio"></div></div></div></div>
+</div>
+<div class="calculator-step" data-step="fitness">
+	<div class="fitness-preview">
+		<img class="fitness-preview__image" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt="" loading="eager">
+		<div class="fitness-preview__content">
+			<p class="fitness-status">N118 FITNESS <span>Coming soon</span></p>
+			<h2 class="step-title">Your next stop.<br><span>A stronger you.</span></h2>
+			<p class="step-intro">In-person and online coaching built around your goals, your starting point and your pace.</p>
+			<a class="btn fitness-waitlist" href="<?php echo esc_url(home_url('/n118-fitness/')); ?>">Join the waitlist <span aria-hidden="true">↗</span></a>
+			<p class="fitness-preview__note">Be among the first to hear when coaching launches.</p>
+			<div class="fitness-preview__meta"><span>IN PERSON &amp; ONLINE</span><span>PERSONAL COACHING</span></div>
+		</div>
+	</div>
+</div>
+<div class="calculator-step" data-step="1">
+	<h2 class="step-title">What would you like to create?</h2>
 
-				<div class="options-group">
-					<label>
-						<input type="radio" name="service" value="design">
-						<span class="custom-radio"></span>
-						Design
-					</label>
+	<p class="step-intro">Choose the service that best fits your project. Explore the details whenever you need them.</p>
+	<div class="options-group options-group--services">
+		<?php foreach (dx_calculator_services() as $index => $service) : ?>
+		<div class="service-option">
+			<label>
+				<input type="radio" name="service" value="<?php echo esc_attr($service['key']); ?>" data-label="<?php echo esc_attr($service['title']); ?>" aria-label="<?php echo esc_attr($service['title']); ?>">
+				<span class="service-option__number" aria-hidden="true"><?php echo esc_html(sprintf('%02d', $index + 1)); ?></span>
+				<?php if ($service['image']) : ?><img class="service-option__image" src="<?php echo esc_url($service['image']); ?>" alt="" loading="lazy"><?php endif; ?>
+				<span class="service-option__copy"><strong><?php echo esc_html($service['title']); ?></strong><span><?php echo esc_html($service['excerpt']); ?></span></span>
+				<span class="service-option__price"><?php echo $service['fixed'] ? '' : 'From '; ?>£<?php echo esc_html(number_format($service['price'], 0)); ?><?php if ($service['monthly']) : ?><small>/ month</small><?php endif; ?></span>
+				<span class="custom-radio"></span>
+			</label>
+			<details class="service-option__details"><summary aria-label="Explore details for <?php echo esc_attr($service['title']); ?>">Explore details</summary><div class="service-option__content"><ul class="service-detail-list"><?php foreach (preg_split('/\r\n|\r|\n/', $service['features'] ?: $service['excerpt']) as $detail) : if (!trim($detail)) continue; ?><li><?php echo esc_html(trim($detail)); ?></li><?php endforeach; ?></ul></div></details>
+		</div>
+		<?php endforeach; ?>
+	</div>
 
-					<label>
-						<input type="radio" name="service" value="landing_page">
-						<span class="custom-radio"></span>
-						Landing Page Development
-					</label>
 
-					<label>
-						<input type="radio" name="service" value="development">
-						<span class="custom-radio"></span>
-						Web Development
-					</label>
-
-					<label>
-						<input type="radio" name="service" value="wp_development">
-						<span class="custom-radio"></span>
-						WordPress Development
-					</label>
-
-					<label>
-						<input type="radio" name="service" value="comprehensive">
-						<span class="custom-radio"></span>
-						Comprehensive
-					</label>
-
-					<label>
-						<input type="radio" name="service" value="retainer">
-						<span class="custom-radio"></span>
-						Retainer
-					</label>
-				</div>
-			</div>
+</div>
 
 			<div class="calculator-step" data-step="2">
-				<h2 class="step-title">2. What best describes the scope?</h2>
+				<h2 class="step-title">What best describes the scope?</h2>
 
 				<div class="options-group">
 					<label>
@@ -77,7 +92,7 @@
 			</div>
 
 			<div class="calculator-step" data-step="3">
-				<h2 class="step-title">3. What’s your project type?</h2>
+				<h2 class="step-title">What’s your project type?</h2>
 
 				<div class="options-group long">
 					<label>
@@ -137,7 +152,7 @@
 			</div>
 
             <div class="calculator-step" data-step="4">
-				<h2 class="step-title">4. What added functionality do you require?</h2>
+				<h2 class="step-title">What added functionality do you require?</h2>
 
 				<div class="options-group">
 					<label>
@@ -167,7 +182,7 @@
 			</div>
 
 			<div class="calculator-step" data-step="5">
-				<h2 class="step-title">5. What’s your ideal timeline?</h2>
+				<h2 class="step-title">What’s your ideal timeline?</h2>
 
 				<div class="options-group">
 					<label>
@@ -191,13 +206,13 @@
 					<label>
 						<input type="radio" name="timeline" value="urgent">
 						<span class="custom-radio"></span>
-						Urgent (Within 1 Week Turnaround)
+						Urgent (&lt;7 Day Turnaround)
 					</label>
 				</div>
 			</div>
 
 			<div class="calculator-step" data-step="6">
-				<h2 class="step-title">6. Do you need ongoing support?</h2>
+				<h2 class="step-title">Do you need ongoing support?</h2>
 
 				<div class="options-group">
 					<label>
@@ -220,17 +235,36 @@
 				</div>
 			</div>
 
+<?php $retainer = dx_retainer_config(); ?>
+<div class="calculator-step" data-step="retainer_level"><h2 class="step-title">What level of monthly support do you need?</h2><div class="options-group">
+<?php foreach ($retainer['tiers'] as $key => $option) : ?><label><input type="radio" name="retainer_level" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_level" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> general support hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
+</div><p class="retainer-note">Essentials suits routine maintenance and minor improvements. Growth supports more regular development and optimisation. Partner offers an ongoing technical and creative partnership.</p></div>
+<div class="calculator-step" data-step="retainer_areas"><h2 class="step-title">What would you like ongoing support with?</h2><div class="options-group">
+<?php foreach ($retainer['areas'] as $key => $option) : ?><label><input type="checkbox" name="retainer_areas" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-checkbox"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_areas" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
+</div><p class="retainer-note">Selected categories share your general monthly hours. Category fees cover availability, planning and management; they add no hours. Landing-page work does not guarantee a complete page each month.</p></div>
+<div class="calculator-step" data-step="retainer_turnaround"><h2 class="step-title">What turnaround speed do you need?</h2><div class="options-group">
+<?php foreach ($retainer['turnaround'] as $key => $option) : ?><label><input type="radio" name="retainer_turnaround" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_turnaround" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
+</div><p class="retainer-note">These are scheduling targets during published business hours, excluding weekends and public holidays, not guaranteed completion times. Delivery depends on complexity, available hours and agreed scope.</p></div>
+<div class="calculator-step" data-step="retainer_commitment"><h2 class="step-title">What commitment are you comfortable with?</h2><div class="options-group">
+<?php foreach ($retainer['commitments'] as $key => $option) : ?><label><input type="radio" name="retainer_commitment" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_commitment" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
+</div><p class="retainer-note">Longer commitments reduce monthly pricing. Fixed terms and cancellation conditions are subject to agreement.</p></div>
+<div class="calculator-step" data-step="retainer_addons"><h2 class="step-title">Would you like any additional monthly add-ons?</h2><div class="options-group">
+<?php foreach ($retainer['addons'] as $key => $option) : ?><label><input type="checkbox" name="retainer_addons" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-checkbox"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_addons" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
+</div></div>
 			<div class="calculator-step" data-step="7">
-				<h2 class="step-title">Your project outline is ready.</h2>
+				<h2 class="step-title" data-summary-title>Your project outline is ready.</h2>
 
-				<p class="step-intro">
+				<p class="step-intro" data-summary-intro>
 					This estimate reflects the scope, priorities, and level of craftsmanship you’ve selected.
 					It’s a considered starting point - with no obligation and no pressure to proceed.
 				</p>
 
+<div class="final-mobile-estimate"><p>Estimated investment</p><span class="price">£0.00</span></div><button type="button" class="summary-edit" data-edit-personalisation>Add personalisation</button>
+<div class="personalisation-editor" hidden><h3>Make this estimate yours</h3><p>Add your details for a personalised proposal.</p><div class="personalisation-editor__fields"><label>Your name (optional)<input type="text" data-edit-name></label><label>Company / organisation (optional)<input type="text" data-edit-company></label></div><div class="personalisation-editor__actions"><button type="button" class="btn" data-save-personalisation>Save details</button><button type="button" class="summary-edit" data-close-personalisation>Cancel</button></div></div>
+
 				<div class="invoice-summary is-hidden" id="invoice-summary">
-					<label for="invoice-link">Your invoice reference</label>
-					<p>Keep this handy so you can access your quote anywhere, anytime.</p>
+					<label for="invoice-link">Your estimate reference</label>
+					<p>Keep this reference handy if you'd like to discuss your estimate with me.</p>
 
 					<div class="copy-field">
 						<input
@@ -303,9 +337,9 @@
 
 				<h4>What would you like to do next?</h4>
 
-				<div class="summary-actions">			
+				<div class="summary-actions"><a class="btn calculator-enquire" href="<?php echo esc_url(home_url('/start-a-project/?from_calculator=1')); ?>">Start this project ↗</a>			
 					<button class="btn download-pdf">
-						Download proposal (PDF)
+						Download estimate (PDF)
 						<i class="fa-solid fa-file-pdf"></i>
 					</button>
 
@@ -315,27 +349,35 @@
 					</button>
 
 					<a
-						href="<?php echo esc_url( add_query_arg( 'source', 'pricing-calculator', home_url( '/contact/' ) ) ); ?>"
-						class="btn btn-outline"
+						href="https://calendly.com/dxndre/30min?source=pricing-calculator"
+						class="btn btn-outline js-calendly-popup"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						Discuss this project
 						<span class="meta">
 							30-minute call · No obligation
 						</span>
-						<i class="fa-solid fa-arrow-up-right-from-square"></i>
 					</a>
 
 					<p class="summary-note">
 						💡 You’ll speak directly with me — no sales process, no intermediaries.
-						Feel free to download or reference this proposal during our conversation.
+						Feel free to download or reference this estimate during our conversation.
 					</p>
 				</div>
 			</div>
 		</div>
 
+	<div class="calculator-nav">
+		<div class="nav-estimate" hidden><span>Estimated investment</span><strong class="price">£0</strong></div>
+		<button class="prev-step" disabled>Back</button>
+		<button class="next-step" disabled>Next</button>
+	</div>
+		</div>
 		<div class="calculator-summary">
-			<div class="summary-content">
+			<div class="summary-welcome"><p class="summary-kicker">YOUR NEXT CHAPTER</p><h2>Your project<br>starts here.</h2><p>Choose your direction and shape a plan around what matters to you.</p><span>DESIGN · TECHNOLOGY · PERSONAL GROWTH</span></div>
+			<div class="summary-fitness"><img src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt=""><span>N118 FITNESS · LONDON BUILT</span></div>
+			<div class="summary-content"><div class="retainer-capacity" hidden></div><div class="package-recommendation" hidden aria-live="polite"></div><dialog class="package-comparison" aria-label="Compare monthly support packages" hidden></dialog>
 				<ul class="summary-breakdown"></ul>
 				<div class="summary-price">
 					<p>Your projected investment</p>
@@ -351,8 +393,4 @@
         <p>Your quote has been sent successfully. I’ll be in touch shortly.</p>
     </div>
 
-	<div class="calculator-nav">
-		<button class="prev-step" disabled>Back</button>
-		<button class="next-step" disabled>Next</button>
-	</div>
 </div>

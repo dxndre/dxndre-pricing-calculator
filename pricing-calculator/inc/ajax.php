@@ -26,24 +26,26 @@ function dx_finalize_quote() {
 		wp_send_json_error(['message' => 'Invalid data']);
 	}
 
-	if (empty($state['total'])) {
-		wp_send_json_error(['message' => 'Missing total']);
+	$state = dx_validate_estimate_state($state);
+	if (is_wp_error($state)) wp_send_json_error(['message'=>$state->get_error_message()]);
+	$reference = sanitize_text_field($_POST['estimate_reference'] ?? '');
+	$token = sanitize_text_field($_POST['estimate_token'] ?? '');
+	if ($reference) {
+		$stored = get_transient('dx_estimate_edit_' . $reference);
+		if (!$stored || !$token || !hash_equals($stored, $token) || !dx_get_quote_by_invoice($reference)) wp_send_json_error(['message'=>'This estimate can no longer be edited. Please start a new estimate.']);
+		$invoice = $reference;
+		$state['estimate_reference'] = $invoice;
+		global $wpdb;
+		$saved = $wpdb->update($wpdb->prefix.'dx_quotes', ['state'=>wp_json_encode($state),'total'=>$state['total']], ['invoice'=>$invoice], ['%s','%f'], ['%s']);
+	} else {
+		$invoice = dx_get_next_invoice_number();
+		$token = wp_generate_password(40, false, false);
+		$state['estimate_reference'] = $invoice;
+		$saved = dx_save_quote($invoice, $state, $state['total']);
+		set_transient('dx_estimate_edit_' . $invoice, $token, 30 * DAY_IN_SECONDS);
 	}
-
-	// Generate invoice number
-	$invoice = dx_get_next_invoice_number();
-
-	// Save quote
-	dx_save_quote(
-		$invoice,
-		$state,
-		$state['total']
-	);
-
-	wp_send_json_success([
-		'invoice' => $invoice,
-		'url'     => home_url("/proposal/$invoice/")
-	]);
+	if ($saved === false) wp_send_json_error(['message'=>'The estimate could not be saved. Please try again.']);
+	wp_send_json_success(['invoice'=>$invoice, 'token'=>$token, 'url'=>home_url("/proposal/$invoice/")]);
 }
 
 /* ==========================================================
@@ -89,6 +91,9 @@ function dx_send_quote() {
 	if (!$state || !is_array($state)) {
 		wp_send_json_error(['message' => 'Invalid data']);
 	}
+
+	$state = dx_validate_estimate_state($state);
+	if (is_wp_error($state)) wp_die(esc_html($state->get_error_message()));
 
 	if (!class_exists(Dompdf::class)) {
 		wp_send_json_error(['message' => 'PDF engine unavailable']);
@@ -166,6 +171,9 @@ function dx_generate_quote_pdf() {
 	if (!$state || !is_array($state)) {
 		wp_die('Invalid data');
 	}
+
+	$state = dx_validate_estimate_state($state);
+	if (is_wp_error($state)) wp_die(esc_html($state->get_error_message()));
 
 	if (!class_exists(Dompdf::class)) {
 		wp_die('PDF engine unavailable');

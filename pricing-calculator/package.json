@@ -1,10 +1,11 @@
 {
   "name": "pricing-calculator",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:css": "sass assets/scss:assets/css --style=compressed",
+    "watch:css": "sass assets/scss:assets/css --watch"
   },
   "keywords": [],
   "author": "",
@@ -12,5 +13,8 @@
   "type": "commonjs",
   "dependencies": {
     "bootstrap": "^5.3.8"
+  },
+  "devDependencies": {
+    "sass": "^1.70.0"
   }
 }

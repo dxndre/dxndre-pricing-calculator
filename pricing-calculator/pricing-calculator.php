@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DXNDRE Pricing Calculator
  * Description: Multi-step project pricing calculator
- * Version: 1.2.3
+ * Version: 1.2.4
  */
 
 if (!defined('ABSPATH')) exit;
@@ -35,7 +35,7 @@ function dx_pricing_calculator_assets() {
 		'dx-pricing-calculator',
 		DX_PC_URL . 'assets/js/calculator.js',
 		[],
-		'1.0',
+		filemtime(DX_PC_PATH . 'assets/js/calculator.js'),
 		true
 	);
 
@@ -73,6 +73,8 @@ add_filter('query_vars', function ($vars) {
 function dx_build_quote_html($state) {
 
 	$total = number_format($state['total'], 2);
+	$invoice = $state['estimate_reference'] ?? '';
+	$is_retainer = ($state['service'] ?? '') === 'retainer';
 	$font_dir = DX_PC_PATH . 'assets/fonts/';
 
 	$generated_at = new DateTime('now', wp_timezone());
@@ -282,7 +284,7 @@ function dx_build_quote_html($state) {
 
 			<div class="logo-header">
 				<a href="https://www.dxndre.co.uk" target="_blank">
-					<img src="<?= DX_PC_URL ?>assets/img/dxndre.co.uk-black.png" alt="Logo" width="150">
+					<strong style="font-size:24px;color:#000">dxndre.co.uk</strong>
 				</a>
 			</div>
 
@@ -290,7 +292,8 @@ function dx_build_quote_html($state) {
 				<tr>
 					<td>
 						<pre class="headline">Pricing Calculator</pre>
-						<h1>Online Quotation</h1>
+						<h1>Online Estimate</h1><p>Estimate reference: <?= esc_html($invoice) ?></p>
+						<?php if (!empty($state['client_name']) || !empty($state['client_company'])) : ?><p>Prepared for <?= esc_html(trim(($state['client_name'] ?? '').' · '.($state['client_company'] ?? ''), ' ·')); ?></p><?php endif; ?>
 						<p><strong>D’André Phillips</strong><br>
 						dandrephillips@outlook.com</p>
 					</td>
@@ -313,24 +316,18 @@ function dx_build_quote_html($state) {
 					<th align="right">Amount</th>
 				</thead>
 
-				<?php foreach ($state as $key => $value): 
-					if (is_array($value)) continue; ?>
-					<tr>
-						<td><?= ucfirst($key) ?></td>
-						<td align="right"><?= esc_html($value) ?></td>
-					</tr>
-				<?php endforeach; ?>
+				<?php echo dx_estimate_breakdown_html($state, 2); ?>
 			</table>
 
 			<div class="total">
-				<strong>Total £<?= $total ?></strong>
+				<strong><?= $is_retainer ? 'Monthly estimate' : 'Total' ?> £<?= $total ?><?= $is_retainer ? ' / month' : '' ?></strong>
 			</div>
 
 			<div class="footer">
 				<div class="footer-inner">
 					<h3>Important to note</h3>
 					<p>This quotation is valid for 30 days. </p>
-					<p>Payment terms: 33.33% upfront, balance on completion. </p>
+					<p><?= $is_retainer ? 'Hours are shared across selected support categories and expire monthly. Dedicated landing-page hours apply only to landing-page work. Scheduling targets are not completion guarantees. Additional work and major builds require separate agreement.' : 'Payment terms: 33.33% upfront, balance on completion.' ?></p>
 				</div>
 				
 			</div>
@@ -339,7 +336,7 @@ function dx_build_quote_html($state) {
 	</body>
 
 	<footer>
-		<span>Invoice <?= esc_html($invoice); ?></span>
+		<span>Estimate <?= esc_html($invoice); ?></span>
 		<span class="page-number"></span>
 	</footer>
 </html>
