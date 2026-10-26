@@ -1,20 +1,23 @@
 {
-  "name": "pricing-calculator",
-  "version": "1.2.4",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "build:css": "sass assets/scss:assets/css --style=compressed",
-    "watch:css": "sass assets/scss:assets/css --watch"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "bootstrap": "^5.3.8"
-  },
-  "devDependencies": {
-    "sass": "^1.70.0"
-  }
+	"name": "pricing-calculator",
+	"version": "2.0.1",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"build:css": "sass assets/scss:assets/css --style=compressed",
+		"watch:css": "sass assets/scss:assets/css --watch",
+		"version:patch": "node scripts/bump-version.js patch",
+		"version:minor": "node scripts/bump-version.js minor",
+		"version:major": "node scripts/bump-version.js major"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "commonjs",
+	"dependencies": {
+		"bootstrap": "^5.3.8"
+	},
+	"devDependencies": {
+		"sass": "^1.70.0"
+	}
 }

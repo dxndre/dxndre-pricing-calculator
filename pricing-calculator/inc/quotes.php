@@ -38,6 +38,8 @@ function dx_validate_estimate_state($state) {
 	foreach (['client_name','client_company'] as $key) $state[$key] = sanitize_text_field($state[$key] ?? '');
 	if (($state['service'] ?? '') !== 'retainer') {
 		$state['estimate_breakdown'] = dx_estimate_selection_rows($state, true);
+		if (($state['service'] ?? '') === 'one_off') $state['total'] = max(0, array_sum(array_column($state['estimate_breakdown'], 'amount')));
+		$state['payment_plan'] = dx_payment_schedule($state)['plan'];
 		return $state;
 	}
 	$c = dx_retainer_config();
@@ -52,6 +54,7 @@ function dx_validate_estimate_state($state) {
 	}
 	$state['retainer_estimate'] = dx_calculate_retainer($state);
 	$state['total'] = $state['retainer_estimate']['total'];
+	$state['payment_plan'] = dx_payment_schedule($state)['plan'];
 	return $state;
 }
 
@@ -74,15 +77,18 @@ function dx_estimate_selection_rows($state, $capture_prices = false) {
 	$labels = [
 		'service'=>$services,
 		'scope'=>['small'=>'Small (1–3 Pages / Simple Functionality)','medium'=>'Medium (4–8 Pages / Moderate Functionality)','large'=>'Large (9+ Pages / Complex Functionality)'],
-		'type'=>['business'=>'Business','blog'=>'Blog','education'=>'Education','forum'=>'Forum','personal'=>'Personal','entertainment'=>'Entertainment','nonprofit'=>'Non-Profit Charity','event'=>'Event','portfolio'=>'Portfolio'],
+		'type'=>['business'=>'Business','blog'=>'Blog','education'=>'Education','forum'=>'Forum','personal'=>'Personal','entertainment'=>'Entertainment','nonprofit'=>'Non-Profit Charity','event'=>'Event','portfolio'=>'Portfolio','gaming'=>'Gaming'],
 		'features'=>['user_account'=>'User Accounts','ecommerce'=>'eCommerce','integration'=>'External Integrations','none'=>'No added functionality'],
-		'timeline'=>['no_rush'=>'No Rush (12+ Weeks Turnaround)','flexible'=>'Standard (6–12 Weeks Turnaround)','priority'=>'Priority (1–4 Weeks Turnaround)','urgent'=>'Urgent (<7 Day Turnaround)'],
+		'timeline'=>['no_rush'=>'No Rush (12+ Weeks Turnaround)','flexible'=>'Standard (5 - 12 Week turnaround)','priority'=>'Priority (1–4 Weeks Turnaround)','urgent'=>'Urgent (<7 Day Turnaround)'],
 		'extras'=>['maintenance'=>'Ongoing Maintenance & Updates','seo'=>'Basic SEO setup & Optimisation','hosting'=>'Hosting & Monitoring']
 	];
 	$categories = ['service'=>'Service','scope'=>'Project scope','type'=>'Project type','features'=>'Additional functionality','timeline'=>'Timeline','extras'=>'Ongoing support','retainer_level'=>'Support package','retainer_areas'=>'Support category','retainer_turnaround'=>'Scheduling','retainer_commitment'=>'Commitment','retainer_addons'=>'Monthly add-on'];
 	$service = $state['service'] ?? '';
 	$groups = ['service','scope','type','features','timeline','extras'];
-	if ($service === 'design') $groups = ['service','scope','type','timeline'];
+	if ($service === 'design') {
+		$groups = ['service','scope','type','timeline'];
+		$labels['scope'] = ['small'=>'Small (1–3 Pages)','medium'=>'Medium (4–8 Pages)','large'=>'Large (9+ Pages)'];
+	}
 	if ($service === 'landing_page') $groups = ['service','type','timeline'];
 	if ($service === 'retainer') {
 		$c = dx_retainer_config();
@@ -99,7 +105,8 @@ function dx_estimate_selection_rows($state, $capture_prices = false) {
 		foreach (array_unique($values) as $value) {
 			if (!is_string($value) || $value === '') continue;
 			$section = $group === 'service' ? 'services' : $group;
-			$rows[] = ['category'=>$categories[$group], 'label'=>$labels[$group][$value] ?? ucwords(str_replace('_',' ',$value)), 'amount'=>$capture_prices ? ($pricing[$section][$value] ?? 0) : null, 'group'=>$group];
+			if ($service === 'design' && $group === 'timeline') $section = 'design_timeline';
+			$rows[] = ['category'=>$categories[$group], 'label'=>$labels[$group][$value] ?? ucwords(str_replace('_',' ',$value)), 'amount'=>$capture_prices ? (($service === 'one_off' && in_array($value, ['nonprofit', 'no_rush'], true)) ? -5 : ($pricing[$section][$value] ?? 0)) : null, 'group'=>$group];
 		}
 	}
 	return $rows;
@@ -118,4 +125,24 @@ function dx_estimate_breakdown_html($state, $columns = 3) {
 		$html .= '<tr><td>'.esc_html($row['category']).($columns === 2 ? ': '.esc_html($row['label']) : '').'</td>'.($columns === 3 ? '<td>'.esc_html($row['label']).'</td>' : '').'<td align="right">'.esc_html($amount).'</td></tr>';
 	}
 	return $html;
+}
+
+function dx_payment_schedule($state) {
+ $quote=max(0,(int)round((float)($state['total']??0)*100));
+ $photo=($state['service_category']??'')==='photography';$deposit=min($quote,$photo?1000:5000);
+ $plan=($state['service']??'')==='retainer'?'full':($photo?'after':($state['payment_plan']??'full'));
+ if((!$photo&&$plan==='after')||!in_array($plan,['full','three','six','after','custom'],true)||($plan==='six'&&$quote<=60000))$plan='full';
+ $interest=$plan==='six'?(int)round($quote*.05):0;$balance=$quote+$interest-$deposit;$count=$plan==='six'?6:($plan==='three'?3:1);
+ $payments=array_fill(0,$count,intdiv($balance,$count));$payments[$count-1]+=$balance-array_sum($payments);
+ return compact('plan','deposit','interest','balance','payments');
+}
+function dx_payment_terms($state) {
+ $p=dx_payment_schedule($state);$money=fn($c)=>'£'.number_format($c/100,2);
+ if(($state['service']??'')==='retainer') return 'Nothing is payable now. Your retainer is billed monthly at £'.number_format((float)($state['total']??0),2).'. After our call and acceptance of the final quotation, the '.$money($p['deposit']).' deposit is credited toward your first monthly bill. Billing dates are confirmed in your final quotation.';
+ $text='Nothing is payable now. After our initial call and your acceptance of the final quotation, a '.$money($p['deposit']).' deposit is due before work begins, included in your total. ';
+ if($p['plan']==='custom')return $text.'Custom instalment plan: remaining balance and payment dates to be agreed during our call, before work begins.';
+ if($p['plan']==='after')return $text.$money($p['balance']).' payable after the photography service.';
+ if($p['plan']==='three')return $text.'Remaining balance in three instalments: '.implode(', ',array_map($money,$p['payments'])).' — on completion of design, completion of development, and 30 days post-launch.';
+ if($p['plan']==='six')return $text.'One-off interest of '.$money($p['interest']).' (5% of the full quote). Six monthly instalments: '.implode(', ',array_map($money,$p['payments'])).'. First instalment one month after the deposit.';
+ return $text.'Remaining '.$money($p['balance']).' payable in full before work begins.';
 }

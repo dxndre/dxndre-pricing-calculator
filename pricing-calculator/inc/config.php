@@ -6,27 +6,24 @@ function dx_pricing_config() {
 
 		'scope' => [
 			'small' => 0,
-			'medium' => 300,
-			'large' => 600
+			'medium' => 75,
+			'large' => 150
 		],
 
-        'type' => [
-			'business' => 50,
-            'blog' => 25,
-            'education' => 75,
-            'forum' => 50,
-            'personal' => 100,
-            'entertainment' => 200,
-            'nonprofit' => -75,
-            'event' => 50,
-			'portfolio' => 75
-		],
+        'type' => ['business'=>50,'blog'=>50,'education'=>25,'forum'=>50,'personal'=>50,'entertainment'=>50,'nonprofit'=>-75,'event'=>50,'portfolio'=>50,'gaming'=>200],
 
         'features' => [
 			'user_account' => 250,
 			'ecommerce' => 300,
 			'integration' => 150,
 			'none' => 0
+		],
+
+		'design_timeline' => [
+			'no_rush' => -75,
+			'flexible' => 0,
+			'priority' => 100,
+			'urgent' => 200
 		],
 
 		'timeline' => [

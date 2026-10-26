@@ -6,6 +6,7 @@
 
 	const state = {
 		service: null,
+        payment_plan: 'full',
 		service_category: null,
 		scope: null,
 		type: null,
@@ -92,7 +93,7 @@
 			{ key: 'service', type: 'radio', group: 'service', prices: priceMaps.services },
 			{ key: 'scope', type: 'radio', group: 'scope', prices: priceMaps.scope },
 			{ key: 'type', type: 'radio', group: 'type', prices: priceMaps.type },
-			{ key: 'timeline', type: 'radio', group: 'timeline', prices: priceMaps.timeline },
+			{ key: 'timeline', type: 'radio', group: 'timeline', prices: prices.design_timeline || priceMaps.timeline },
 		],
 		landing_page: [
 			{ key: 'service', type: 'radio', group: 'service', prices: priceMaps.services },
@@ -133,7 +134,8 @@
 
 	const setButtonDisabled = (btn, disabled) => {
 		if (!btn) return;
-		btn.disabled = disabled;
+		btn.disabled = btn === nextBtn ? false : disabled;
+		if(btn===nextBtn)btn.removeAttribute('aria-disabled');
 		btn.classList.toggle('is-disabled', disabled);
 	};
 
@@ -158,6 +160,7 @@
 	const getSummaryIntro = () => state.service === 'retainer' ? "Here's your estimated monthly investment based on your selected support level and add-ons. Review the breakdown and decide what you'd like to do next." : "Here's an estimate based on your selections. Review your project breakdown, explore the costs and decide what you'd like to do next.";
 
 	const updateSummaryCopy = () => {
+		updateGreeting();
 		const editLink=calculator.querySelector('[data-edit-personalisation]');if(editLink)editLink.textContent=state.client_name||state.client_company?'Edit personalisation':'Add personalisation';
 		if (summaryTitleEl) {
 			summaryTitleEl.textContent = getSummaryHeading();
@@ -169,11 +172,12 @@
 
 	const getPriceForValue = (map, value) => {
 		if (!map || value === null || value === undefined) return 0;
-		const numeric = Number(map[value]);
+		const numeric = state.service === 'one_off' && ['nonprofit', 'no_rush'].includes(value) ? -5 : Number(map[value]);
 		return Number.isFinite(numeric) ? numeric : 0;
 	};
 
 	const getLabelText = (group, value) => {
+		if(group==='scope' && state.service==='design')return {small:'Small (1–3 Pages)',medium:'Medium (4–8 Pages)',large:'Large (9+ Pages)'}[value] || value;
 		const input = calculator.querySelector(`input[name="${group}"][value="${value}"]`);
 		if (!input) return value;
 		if (input.dataset.label) return input.dataset.label;
@@ -189,7 +193,8 @@
 		if (!el) return;
 		el.classList.add('is-updating');
 		setTimeout(() => {
-			el.textContent = formatPrice(value) + (state.service === 'retainer' ? ' / month' : '');
+			el.textContent = formatPrice(value);
+			if(state.service === 'retainer'){const suffix=document.createElement('span');suffix.className='price-suffix';suffix.textContent=' / MONTH';el.append(suffix);}
 			requestAnimationFrame(() => {
 				el.classList.remove('is-updating');
 			});
@@ -198,8 +203,25 @@
 
 	const isSummaryStep = (stepKey) => stepKey === '7';
 
+	let wordTimer, wordVersion=0;
+	function updateJourneyWord() {
+		const node=calculator.querySelector('[data-journey-word]'), target={fitness:'fitness journey',photography:'memories'}[state.service_category] || 'project';
+		const verb=calculator.querySelector('[data-journey-verb]');if(verb)verb.textContent=state.service_category==='photography'?'start':'starts';
+		if(node.dataset.target===target)return; node.dataset.target=target; clearTimeout(wordTimer); const version=++wordVersion;
+		if(matchMedia('(prefers-reduced-motion: reduce)').matches){node.textContent=target;return;}
+		let deleting=true;
+		const tick=()=>{if(version!==wordVersion)return; const value=node.textContent; if(deleting){node.textContent=value.slice(0,-1); if(!node.textContent)deleting=false;}else{node.textContent=target.slice(0,value.length+1);if(node.textContent===target)return;} wordTimer=setTimeout(tick,deleting?35:65);};tick();
+	}
+	const personalisation = calculator.querySelector('.calculator-intro-fields');
+	const personalisationHome = document.createComment('Personalisation on mobile'); personalisation.before(personalisationHome);
+	const layoutMedia=matchMedia('(min-width: 768px)');
+	function placePersonalisation(){ if(layoutMedia.matches)calculator.querySelector('.calculator-summary').append(personalisation);else personalisationHome.after(personalisation); }
+	layoutMedia.addEventListener('change',placePersonalisation);placePersonalisation();
+	const greeting=document.createElement('p');greeting.className='calculator-greeting';calculator.querySelector('.calculator-progress').after(greeting);
+	function updateGreeting(){greeting.textContent=getFriendlyName()?`${getFriendlyName()}, let’s make this yours.`:'';greeting.hidden=!getFriendlyName();}
+
 	const applyActiveFlow = () => {
-		activeFlow = state.service_category === 'fitness' ? ['category', 'fitness'] : ['category', ...(flows[getFlowKey()] || flows.default)];
+		activeFlow = state.service_category === 'photography' ? ['category','photography'] : state.service_category === 'fitness' ? ['category', 'fitness'] : ['category', ...(flows[getFlowKey()] || flows.default)];
 		if (currentStepIndex >= activeFlow.length) {
 			currentStepIndex = activeFlow.length - 1;
 		}
@@ -294,10 +316,12 @@
 			const group=el.dataset.retainerPrice,key=el.dataset.value,index=Object.keys(c.tiers).indexOf(state.retainer_level||'essentials');
 			if(group==='retainer_commitment'){
 				const subtotal=calculateRetainer().subtotal, rolling=c.commitments.monthly.multiplier;
-				if(key==='monthly')el.textContent=`${formatPrice(money(subtotal*rolling))} / month`;
-				else {
+				el.replaceChildren();
+				el.append(document.createTextNode(`${formatPrice(money(subtotal*c.commitments[key].multiplier))} / month`));
+				if(key!=='monthly')
+				{
 					const saving=(1-c.commitments[key].multiplier/rolling)*100;
-					el.textContent=`Save ${saving.toFixed(1).replace(/\.0$/, '')}% compared with monthly rolling`;
+					addText(el,'span',`Save ${saving.toFixed(1).replace(/\.0$/, '')}% compared with monthly rolling`,'commitment-savings');
 				}
 			}
 			else {const amount=group==='retainer_level'?c.tiers[key].price:group==='retainer_areas'?c.areas[key].prices[index]:group==='retainer_turnaround'?c.turnaround[key].price:c.addons[key].price;el.textContent=amount===0?'Included':`${group==='retainer_level'?'':'+'}${formatPrice(amount)} / month`;}
@@ -332,7 +356,7 @@
 		const wrap=addText(comparison,'div','','package-comparison__table-wrap');
 		const table=addText(wrap,'table','','package-comparison__table');
 		const head=addText(table,'thead',''), header=addText(head,'tr','');
-		addText(header,'th','Your selected requirements').scope='col';
+		addText(header,'th','').scope='col';
 		packages.forEach(({key,tier})=>{
 			const cell=addText(header,'th','');cell.scope='col';
 			const badge=addText(cell,'span','Suggested starting point','package-comparison__badge');
@@ -380,9 +404,39 @@
 			}
 		});
 
+		state.total = Math.max(0, state.total);
 		let rows=[];
 		if(state.service==='retainer') { const estimate=calculateRetainer();state.total=estimate.total;rows=estimate.rows;state.retainer_estimate=estimate; }
 		else { delete state.retainer_estimate;summaryConfig.forEach(cfg=>{const values=cfg.type==='checkbox'?state[cfg.key]||[]:state[cfg.key]?[state[cfg.key]]:[];values.forEach(value=>rows.push({label:getLabelText(cfg.group,value),amount:getPriceForValue(cfg.prices,value),group:cfg.key}));}); }
+        if(state.service_category==='photography') {
+          const express=!!calculator.querySelector('[data-photo-express]')?.checked;state.total=express?50:40;
+          rows=[{label:'Photography · 48-hour delivery',amount:40,group:'photo'}];if(express)rows.push({label:'24-hour delivery',amount:10,group:'photo'});
+        }
+        const six=calculator.querySelector('[data-six-option]');if(six){six.hidden=state.total<=600;six.querySelector('input').disabled=state.total<=600;if(state.total<=600&&state.payment_plan==='six'){state.payment_plan='full';calculator.querySelector('[name=payment_plan][value=full]').checked=true;}}
+        const deposit=Math.min(state.service_category==='photography'?10:50,state.total),interest=state.payment_plan==='six'?Math.round(state.total*5)/100:0,balance=Math.round((state.total+interest-deposit)*100),count=state.payment_plan==='six'?6:state.payment_plan==='three'?3:1;
+        const base=Math.floor(balance/count),last=balance-base*(count-1);
+        const paymentSummary=calculator.querySelector('[data-payment-summary]');
+        if(paymentSummary) {
+          paymentSummary.replaceChildren();
+          const paymentRow=(label,value)=>{
+            const row=addText(paymentSummary,'div','','dx-payment-summary-row');
+            addText(row,'dt',label);
+            addText(row,'dd',value);
+          };
+          paymentRow('Deposit after final quote acceptance',formatPrice(deposit));
+          paymentRow('Remaining balance',formatPrice(balance/100));
+          if(state.payment_plan==='custom') {
+            paymentRow('Payment schedule','Agreed during our call');
+          } else if(count>1) {
+            paymentRow(`First ${count-1} instalments`,`${formatPrice(base/100)} each`);
+            paymentRow('Final instalment',formatPrice(last/100));
+          }
+          if(interest) paymentRow('One-off 5% charge',`${formatPrice(interest)} included in the balance`);
+        }
+        let payToday=calculator.querySelector('[data-pay-today]');
+        if(!payToday){payToday=document.createElement('p');payToday.dataset.payToday='';calculator.querySelector('.summary-price').append(payToday);}
+        payToday.hidden=!(isSummaryStep(getCurrentStepKey()) || state.service_category==='photography');
+        payToday.textContent='AFTER FINAL QUOTE ACCEPTANCE · £'+(state.payment_plan==='full' && state.service_category!=='photography'?state.total:deposit).toFixed(2);
 		breakdownEls.forEach(list=>{list.replaceChildren();rows.forEach(item=>{const row=document.createElement('li');row.dataset.summaryGroup=item.group;if(item.amount<0)row.className='is-discount';addText(row,'span',item.label,'summary-label');addText(row,'span',item.amount===0&&item.group==='retainer_areas'?'Included':formatPrice(item.amount),'summary-value');list.append(row);});if(state.client_company){const row=document.createElement('li');row.dataset.summaryGroup='client_company';addText(row,'span','Company','summary-label');addText(row,'span',state.client_company,'summary-value');list.prepend(row);}});
 		updateRetainerUI();
 
@@ -417,9 +471,15 @@
 		updateSummaryCopy();
 		try {
 		 const summary = [...breakdownEls[0].querySelectorAll('li')].map(el => [...el.querySelectorAll('.summary-label, .summary-value')].map(part => part.textContent).join(' ').trim().replace(/\s+/g, ' '));
-		 sessionStorage.setItem('dxndre-calculator-handoff', JSON.stringify({service:state.service,total:state.total,monthly:state.service==='retainer',reference:invoiceNumber,name:state.client_name,company:state.client_company,summary}));
+		 sessionStorage.setItem('dxndre-calculator-handoff', JSON.stringify({service:state.service,total:state.total,monthly:state.service==='retainer',reference:invoiceNumber,name:state.client_name,company:state.client_company,timeline:state.timeline,summary}));
 		} catch (_) {}
 	};
+
+ const paymentDialog=calculator.querySelector('.dx-payment-dialog');
+ calculator.querySelector('[data-open-payment]')?.addEventListener('click',()=>paymentDialog.showModal());
+ calculator.querySelector('[data-close-payment]')?.addEventListener('click',()=>paymentDialog.close());
+ calculator.querySelectorAll('[name=payment_plan]').forEach(input=>input.addEventListener('change',()=>{state.payment_plan=input.value;resetFinalizedQuote();updateSummary();if(isSummaryStep(getCurrentStepKey()))finalizeQuote();}));
+ calculator.querySelector('[data-photo-express]')?.addEventListener('change',()=>{updateSummary();const express=calculator.querySelector('[data-photo-express]').checked;calculator.querySelector('.dx-photo-deposit').textContent=`£10 deposit only after our call and your acceptance of the final quotation. Pay the remaining £${express?40:30} after your shoot.`;});
 
 	/* ==========================
 	   STEP VALIDATION
@@ -431,7 +491,7 @@
 
 		if (isSummaryStep(stepKey)) {
 			setButtonDisabled(nextBtn, false);
-			return;
+			return true;
 		}
 
 		let valid = false;
@@ -450,7 +510,7 @@
 				valid = !!state.type;
 				break;
 			case '4':
-				valid = state.features.length > 0;
+				valid = true;
 				break;
 			case '5':
 				valid = !!state.timeline;
@@ -462,7 +522,7 @@
 				valid = !!state.retainer_level;
 				break;
 			case 'retainer_areas':
-				valid = state.retainer_areas.length > 0;
+				valid = true;
 				break;
 			case 'retainer_turnaround':
 				valid = !!state.retainer_turnaround;
@@ -476,6 +536,8 @@
 		}
 
 		setButtonDisabled(nextBtn, !valid);
+		if(valid)calculator.querySelector('.step-validation-message')?.remove();
+		return valid;
 	};
 
 	/* ==========================
@@ -484,6 +546,8 @@
 
 	const goToStepIndex = (index) => {
 		if (index < 0 || index >= activeFlow.length) return;
+		const navigated=index!==currentStepIndex;
+		calculator.querySelector('.step-validation-message')?.remove();
 
 		steps.forEach((step) => {
 			step.classList.remove('is-active');
@@ -497,13 +561,15 @@
 		target.hidden = false;
 		target.classList.add('is-active');
 		calculator.dataset.step = getCurrentStepKey();
+        personalisation.hidden = !['category','7'].includes(getCurrentStepKey());
 		calculator.querySelector('.calculator-summary').classList.toggle('is-review', getCurrentStepKey() === '7');
 		calculator.querySelector('.calculator-summary').hidden = false;
 		calculator.querySelector('.summary-welcome').hidden = getCurrentStepKey() !== 'category';
 		calculator.querySelector('.summary-fitness').hidden = getCurrentStepKey() !== 'fitness';
 		calculator.querySelector('.summary-content').hidden = ['category', 'fitness'].includes(getCurrentStepKey());
-		nextBtn.classList.toggle('is-hidden', getCurrentStepKey() === 'fitness');
-		calculator.querySelector('.nav-estimate').hidden = ['category', 'fitness'].includes(getCurrentStepKey());
+		updateJourneyWord(); updateGreeting();
+		nextBtn.classList.toggle('is-hidden', ['fitness','photography'].includes(getCurrentStepKey()));
+		calculator.querySelector('.nav-estimate').hidden = ['category', 'fitness', 'photography'].includes(getCurrentStepKey());
 		const stage = calculator.closest('.calculator-experience');
 		if (stage) {
 			stage.dataset.glow = String(currentStepIndex % 7 + 1);
@@ -514,6 +580,10 @@
 				else heroVideo.pause();
 			}
 		}
+		calculator.querySelectorAll('[data-scope-label]').forEach(el=>{
+			const labels=state.service==='design'?{small:'Small (1–3 Pages)',medium:'Medium (4–8 Pages)',large:'Large (9+ Pages)'}:{small:'Small (1–3 Pages / Simple Functionality)',medium:'Medium (4–8 Pages / Moderate Functionality)',large:'Large (9+ Pages / Complex Functionality)'};
+			el.textContent=labels[el.dataset.scopeLabel];
+		});
 		updateRetainerUI();
 		stepsContainer.scrollTop = 0;
 		const heading = target.querySelector('.step-title');
@@ -534,11 +604,18 @@
 		}
 
 		updateProgress();
+        updateSummary();
 		validateStep();
 		animateHeight();
 
+		if(navigated){
+			const nav=document.querySelector('header nav'), navBottom=nav?nav.getBoundingClientRect().bottom:0;
+			const clearance=Math.max(0,navBottom)+innerHeight*.1;
+			const top=calculator.getBoundingClientRect().top+scrollY-clearance;
+			window.scrollTo({top:Math.max(0,top),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+		}
+
 		if (isSummaryStep(getCurrentStepKey())) {
-			calculator.scrollIntoView({block:'start',behavior:'auto'});
 			finalizeQuote();
 		}
 	};
@@ -600,7 +677,7 @@
 		const meta = document.getElementById('invoice-meta');
 
 		if (summary) summary.classList.remove('is-hidden');
-		if (input) input.value = invoiceUrl;
+		if (input) input.value = invoiceNumber;
 		if (meta) meta.textContent = `Estimate reference: ${invoiceNumber}`;
 		if (copyBtn) copyBtn.disabled = false;
 		try { const handoff=JSON.parse(sessionStorage.getItem('dxndre-calculator-handoff')||'{}');handoff.reference=invoiceNumber;sessionStorage.setItem('dxndre-calculator-handoff',JSON.stringify(handoff)); } catch (_) {}
@@ -644,6 +721,7 @@
 		calculator.querySelectorAll('input[name="service_category"]').forEach(input => {
 			input.addEventListener('change', () => {
 				state.service_category = input.value;
+				updateSummary();
 				applyActiveFlow();
 				goToStepIndex(0);
 				syncActiveLabels();
@@ -765,7 +843,14 @@
 	========================== */
 
 		nextBtn.addEventListener('click', () => {
-		if (getCurrentStepKey() === 'fitness') return;
+		if(!validateStep()){
+			let message=calculator.querySelector('.step-validation-message');
+			if(!message){message=document.createElement('p');message.className='step-validation-message';message.setAttribute('role','alert');nextBtn.parentElement.insertBefore(message,nextBtn);}
+			const reasons={category:'Choose a service to continue.','1':'Choose a service to continue.','2':'Choose the size of your project to continue.','3':'Choose a project type to continue.','5':'Choose a turnaround time to continue.',retainer_level:'Choose a support package to continue.',retainer_turnaround:'Choose a scheduling option to continue.',retainer_commitment:'Choose a commitment to continue.'};
+			message.textContent=reasons[getCurrentStepKey()]||'Please select an option to continue.';
+			return;
+		}
+		if (['fitness','photography'].includes(getCurrentStepKey())) return;
 		if (currentStepIndex < activeFlow.length - 1) {
 			goToStepIndex(currentStepIndex + 1);
 			return;
@@ -889,15 +974,22 @@
 		if (!input || !icon) return;
 
 		const text = input.value;
+		const status = btn.querySelector('.copy-invoice__text');
 
 		const showSuccess = () => {
 			icon.classList.remove('fa-copy');
 			icon.classList.add('fa-check');
+			if(status)status.textContent='Copied';
+			btn.setAttribute('aria-label','Link copied');
+			btn.classList.add('is-success');
 			btn.disabled = true;
 
 			setTimeout(() => {
 				icon.classList.remove('fa-check');
 				icon.classList.add('fa-copy');
+				if(status)status.textContent='Copy';
+				btn.setAttribute('aria-label','Copy link');
+				btn.classList.remove('is-success');
 				btn.disabled = false;
 			}, 1800);
 		};
@@ -905,10 +997,14 @@
 		const showError = () => {
 			icon.classList.remove('fa-copy');
 			icon.classList.add('fa-xmark');
+			if(status)status.textContent='Retry';
+			btn.setAttribute('aria-label','Copy failed. Try again');
 
 			setTimeout(() => {
 				icon.classList.remove('fa-xmark');
 				icon.classList.add('fa-copy');
+				if(status)status.textContent='Copy';
+				btn.setAttribute('aria-label','Copy link');
 			}, 1800);
 		};
 
@@ -920,8 +1016,8 @@
 		try {
 			input.focus();
 			input.select();
-			document.execCommand('copy');
-			showSuccess();
+			if(document.execCommand('copy'))showSuccess();
+			else showError();
 		} catch (err) {
 			console.error('Copy failed', err);
 			showError();

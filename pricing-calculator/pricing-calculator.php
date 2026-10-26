@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DXNDRE Pricing Calculator
  * Description: Multi-step project pricing calculator
- * Version: 1.2.4
+ * Version: 2.0.1
  */
 
 if (!defined('ABSPATH')) exit;
@@ -52,7 +52,7 @@ function dx_pricing_calculator_assets() {
 		'dx-pricing-calculator',
 		DX_PC_URL . 'assets/css/calculator.css',
 		[],
-		'1.0'
+		filemtime( DX_PC_PATH . 'assets/css/calculator.css' )
 	);
 }
 add_action('wp_enqueue_scripts', 'dx_pricing_calculator_assets');
@@ -74,11 +74,13 @@ function dx_build_quote_html($state) {
 
 	$total = number_format($state['total'], 2);
 	$invoice = $state['estimate_reference'] ?? '';
+    $portal_quote = function_exists('dxcp_quote_data') ? dxcp_quote_data($invoice) : null;
+    $is_final = !empty($portal_quote) && $portal_quote['kind']==='final';
 	$is_retainer = ($state['service'] ?? '') === 'retainer';
 	$font_dir = DX_PC_PATH . 'assets/fonts/';
 
-	$generated_at = new DateTime('now', wp_timezone());
-	$expiry_at    = (clone $generated_at)->modify('+30 days');
+	$generated_at = new DateTime($state['estimate_created_at'] ?? 'now', wp_timezone());
+	$expiry_at = !empty($state['estimate_expires_at']) ? new DateTime($state['estimate_expires_at'], wp_timezone()) : (clone $generated_at)->modify('+30 days');
 
 	$quote_date  = $generated_at->format('d F Y');
 	$expiry_date = $expiry_at->format('d F Y');
@@ -92,7 +94,7 @@ function dx_build_quote_html($state) {
 		'extras'   => 'Ongoing Support'
 	];
 
-	$logo_url = get_site_icon_url(512);
+	$logo_url = 'file://' . realpath(DX_PC_PATH . 'assets/img/dxndre-logo-black.png');
 	$site_url = home_url('/');
 	$font_dir = 'file://' . realpath(DX_PC_PATH . 'assets/fonts') . DIRECTORY_SEPARATOR;
 
@@ -102,6 +104,48 @@ function dx_build_quote_html($state) {
 	<head>
 		<meta charset="utf-8">
 		<style>
+			@font-face {
+				font-family: 'Outfit';
+				src: url('<?php echo esc_attr($font_dir . 'Outfit-Regular.ttf'); ?>') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+			@font-face {
+				font-family: 'OutfitMedium';
+				src: url('<?php echo esc_attr($font_dir . 'Outfit-Medium.ttf'); ?>') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+			@font-face {
+				font-family: 'OutfitSemiBold';
+				src: url('<?php echo esc_attr($font_dir . 'Outfit-SemiBold.ttf'); ?>') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+			@font-face {
+				font-family: 'OutfitBold';
+				src: url('<?php echo esc_attr($font_dir . 'Outfit-Bold.ttf'); ?>') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+			@font-face {
+				font-family: 'SpaceGrotesk';
+				src: url('<?php echo esc_attr($font_dir . 'SpaceGrotesk-Regular.ttf'); ?>') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+			@font-face {
+				font-family: 'SpaceGroteskSemiBold';
+				src: url('<?php echo esc_attr($font_dir . 'SpaceGrotesk-SemiBold.ttf'); ?>') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+			@font-face {
+				font-family: 'SpaceGroteskBold';
+				src: url('<?php echo esc_attr($font_dir . 'SpaceGrotesk-Bold.ttf'); ?>') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
 			/* ==========================
 			Base
 			========================== */
@@ -109,35 +153,46 @@ function dx_build_quote_html($state) {
 			body {
 				background: #fff;
 				color: #000;
-				font-family: Helvetica, Arial, sans-serif;
+				font-family: 'Outfit', sans-serif;
 				font-size: 12px;
-				line-height: 1.6;
-				padding: 40px;
+				line-height: 1.45;
+				padding: 0;
 				max-width: 992px;
 				margin: 0 auto;
 			}
 
+			p {
+				margin: 8px 0;
+			}
+
+			strong, b {
+				font-family: 'OutfitBold', sans-serif;
+				font-weight: normal;
+			}
+
 			.container {
 				border: 1px solid rgba(255,255,255,0.35);
-				padding: 32px;
+				padding: 8px;
 			}
 
 			/* ==========================
 			Headings
 			========================== */
 
-			h1, h2 {
-				font-family: Helvetica, Arial, sans-serif;
-				font-weight: 700;
+			h1, h2, h3 {
+				font-family: 'SpaceGroteskBold', sans-serif;
+				font-weight: normal;
 			}
 
 			h1 {
 				font-size: 20px;
-				margin-bottom: 24px;
+				margin-bottom: 12px;
 				margin-top: 0;
 			}
 
 			h4 {
+				font-family: 'SpaceGroteskSemiBold', sans-serif;
+				font-weight: normal;
 				margin: 0;
 			}
 
@@ -147,17 +202,17 @@ function dx_build_quote_html($state) {
 
 			.logo-header {
 				text-align: right;
-				margin-bottom: 60px;
+				margin-bottom: 24px;
 			}
 
 			.header-table {
 				width: 100%;
-				margin-bottom: 40px;
+				margin-bottom: 12px;
 			}
 
 			.header-table td {
 				vertical-align: top;
-				padding-bottom: 10px;
+				padding-bottom: 4px;
 			}
 
 			.header-table td.align-right {
@@ -165,9 +220,9 @@ function dx_build_quote_html($state) {
 			}
 
 			.meta-label {
-				font-family: Helvetica, Arial, sans-serif;
+				font-family: 'OutfitMedium', sans-serif;
 				font-size: 14px;
-				font-weight: 500;
+				font-weight: normal;
 				letter-spacing: 0.12em;
 				text-transform: uppercase;
 				color: #bbbbbb;
@@ -175,7 +230,7 @@ function dx_build_quote_html($state) {
 			}
 
 			.headline {
-				font-family: Helvetica, Arial, sans-serif;
+				font-family: 'SpaceGrotesk', sans-serif;
 				text-transform: uppercase;
 				font-weight: 400;
 				color: rgba(0, 0, 0, 0.6666);
@@ -190,7 +245,7 @@ function dx_build_quote_html($state) {
 			.items {
 				width: 100%;
 				border-collapse: collapse;
-				margin-top: 28px;
+				margin-top: 12px;
 			}
 
 			.items thead {
@@ -204,17 +259,18 @@ function dx_build_quote_html($state) {
 
 			.items th,
 			.items td {
-				font-family: Helvetica, Arial, sans-serif;
+				font-family: 'Outfit', sans-serif;
 				font-size: 12px;
-				padding: 10px 0;
+				padding: 7px 0;
 				/* border-bottom: 1px solid rgba(255,255,255,0.2); */
 				text-align: left;
 				font-weight: 400;
 			}
 
 			.items th {
+				font-family: 'OutfitSemiBold', sans-serif;
 				font-size: 12px;
-				font-weight: 500;
+				font-weight: normal;
 				color: #000;
 			}
 
@@ -228,11 +284,11 @@ function dx_build_quote_html($state) {
 			========================== */
 
 			.total {
-				margin-top: 24px;
+				margin-top: 14px;
 				text-align: right;
-				font-family: Helvetica, Arial, sans-serif;
+				font-family: 'OutfitSemiBold', sans-serif;
 				font-size: 18px;
-				font-weight: 600;
+				font-weight: normal;
 				letter-spacing: -0.01em;
 			}
 
@@ -241,14 +297,14 @@ function dx_build_quote_html($state) {
 			========================== */
 
 			.footer {
-				margin-top: 40px;
+				margin-top: 22px;
 				font-size: 11px;
-				line-height: 1.6;
+				line-height: 1.45;
 				color: #000;
 			}
 
 			.footer-inner {
-				padding: 20px 28px;
+				padding: 12px 16px;
 				border: 1px solid rgba(0,0,0,0.375);
 				max-width: 400px;
 			}
@@ -256,7 +312,7 @@ function dx_build_quote_html($state) {
 			.footer-inner h3 {
 				font-size: 16px;
 				margin-top: 0;
-				margin-bottom: 12px;
+				margin-bottom: 8px;
 			}
 
 			.footer p {
@@ -267,6 +323,17 @@ function dx_build_quote_html($state) {
 
 			@page {
 				margin: 40px;
+			}
+
+			.pdf-page-footer {
+				position: fixed;
+				bottom: -24px;
+				left: 0;
+				font-size: 10px;
+			}
+
+			.total strong {
+				font-family: inherit;
 			}
 
 			.page-number:before {
@@ -283,8 +350,8 @@ function dx_build_quote_html($state) {
 		<div class="container">
 
 			<div class="logo-header">
-				<a href="https://www.dxndre.co.uk" target="_blank">
-					<strong style="font-size:24px;color:#000">dxndre.co.uk</strong>
+				<a href="<?= esc_url($site_url); ?>" target="_blank">
+					<img src="<?= esc_attr($logo_url); ?>" alt="DXNDRE" width="180" style="height:auto;">
 				</a>
 			</div>
 
@@ -292,7 +359,7 @@ function dx_build_quote_html($state) {
 				<tr>
 					<td>
 						<pre class="headline">Pricing Calculator</pre>
-						<h1>Online Estimate</h1><p>Estimate reference: <?= esc_html($invoice) ?></p>
+						<h1><?= $is_final ? 'Final quotation' : 'Online Estimate'; ?></h1><p>Estimate reference: <?= esc_html($invoice) ?></p>
 						<?php if (!empty($state['client_name']) || !empty($state['client_company'])) : ?><p>Prepared for <?= esc_html(trim(($state['client_name'] ?? '').' · '.($state['client_company'] ?? ''), ' ·')); ?></p><?php endif; ?>
 						<p><strong>D’André Phillips</strong><br>
 						dandrephillips@outlook.com</p>
@@ -327,18 +394,18 @@ function dx_build_quote_html($state) {
 				<div class="footer-inner">
 					<h3>Important to note</h3>
 					<p>This quotation is valid for 30 days. </p>
-					<p><?= $is_retainer ? 'Hours are shared across selected support categories and expire monthly. Dedicated landing-page hours apply only to landing-page work. Scheduling targets are not completion guarantees. Additional work and major builds require separate agreement.' : 'Payment terms: 33.33% upfront, balance on completion.' ?></p>
+					<p><?= $is_retainer ? 'Hours are shared across selected support categories and expire monthly. Dedicated landing-page hours apply only to landing-page work. Scheduling targets are not completion guarantees. Additional work and major builds require separate agreement.' : '' ?><?= ' '.esc_html(dx_payment_terms($state)) ?></p>
 				</div>
 				
 			</div>
 
 		</div>
-	</body>
 
-	<footer>
+	<footer class="pdf-page-footer">
 		<span>Estimate <?= esc_html($invoice); ?></span>
 		<span class="page-number"></span>
 	</footer>
+	</body>
 </html>
 <?php
 	return ob_get_clean();
@@ -395,6 +462,19 @@ add_action('template_redirect', function () {
 	}
 
 	$state = json_decode($quote->state, true);
+    $state['total']=(float)$quote->total;
+    if(($state['service']??'')!=='retainer' && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['dx_plan_nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['dx_plan_nonce'])),'dx_plan_'.$invoice)) {
+        $state['payment_plan']=sanitize_key($_POST['payment_plan']??'full');
+        $state['payment_plan']=dx_payment_schedule($state)['plan'];
+        global $wpdb;
+        $wpdb->update($wpdb->prefix.'dx_quotes',['state'=>wp_json_encode($state)],['invoice'=>$invoice],['%s'],['%s']);
+        wp_safe_redirect(home_url('/proposal/'.rawurlencode($invoice).'/'));exit;
+    }
+    if(isset($_GET['pdf'])) {
+        $state['estimate_reference']=$invoice;$state['estimate_created_at']=$quote->created_at;$state['estimate_expires_at']=$quote->expires_at;
+        $pdf=dx_create_dompdf();$pdf->loadHtml(dx_build_quote_html($state),'UTF-8');$pdf->setPaper('A4','portrait');$pdf->render();
+        header('Content-Type: application/pdf');header('Content-Disposition: attachment; filename="estimate-'.sanitize_file_name($invoice).'.pdf"');echo $pdf->output();exit;
+    }
 	$total = number_format($quote->total, 2);
 
 	$generated_at = new DateTime($quote->created_at);

@@ -23,15 +23,17 @@
 			<input type="radio" name="service_category" value="digital" aria-label="Digital services"><span class="custom-radio"></span>
 			<span class="category-card__content"><span class="category-card__eyebrow">DESIGN &amp; TECHNOLOGY</span><strong>Digital services</strong><span class="category-card__description">Considered design. Powerful websites.<br>Ongoing technical support.</span><span class="category-card__action">Plan your project <span aria-hidden="true">↗</span></span></span>
 		</label>
-		<label class="category-card category-card--fitness">
+<label class="category-card category-card--photography"><img class="category-card__image" src="<?php echo esc_url(get_template_directory_uri().'/assets/img/account-night.jpeg');?>" alt="" loading="lazy"><input type="radio" name="service_category" value="photography" aria-label="Photography"><span class="custom-radio"></span><span class="category-card__content"><span class="category-card__eyebrow">THROUGH MY LENS</span><strong>Photography</strong><span class="category-card__description">A considered perspective for people, places and brands.</span><span class="category-card__action">£40 flat rate ↗</span></span></label>		<label class="category-card category-card--fitness">
 			<img class="category-card__image" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt="" loading="eager">
 			<input type="radio" name="service_category" value="fitness" aria-label="Fitness coaching"><span class="custom-radio"></span>
 			<span class="category-card__content"><span class="category-card__eyebrow">N118 FITNESS <span class="category-card__badge">Coming soon</span></span><strong>Fitness coaching</strong><span class="category-card__description">Personal coaching built around<br>your goals, your pace and your potential.</span><span class="category-card__action">Discover what’s next <span aria-hidden="true">↗</span></span></span>
 		</label>
+
 	</div>
 <div class="calculator-intro-fields"><button type="button" class="personalisation-toggle" aria-expanded="false" aria-controls="personalisation-fields">Personalise your estimate (optional)</button><div id="personalisation-fields" hidden><h3 class="calculator-intro-fields__title">Make this estimate yours.</h3><p>Add your name and company to personalise your estimate. It's completely optional, and you can always add these details later.</p><div class="calculator-intro-fields__grid"><div><label for="calculator-client-name">Your name (optional)</label><input id="calculator-client-name" name="client_name" type="text" placeholder="e.g. D'André"></div><div><label for="calculator-client-company">Company / organisation (optional)</label><input id="calculator-client-company" name="client_company" type="text" placeholder="e.g. DXNDRE Studio"></div></div></div></div>
 </div>
-<div class="calculator-step" data-step="fitness">
+
+<div class="calculator-step" data-step="photography"><p class="dx-eyebrow">Photography / A tailored brief</p><h2 class="step-title">Let’s frame your story.</h2><p class="step-intro"><strong class="dx-photo-price">£40</strong> A flat rate for photography. Photos returned within 48 hours as standard, captured with a DSLR and phone camera. Video is captured on a phone. Original, unedited files only; no retouching or editing is included. We’ll confirm the brief and location before booking.</p><label class="photo-express-option"><input type="checkbox" data-photo-express><span class="custom-checkbox" aria-hidden="true"></span>24-hour delivery — add £10</label><p class="dx-photo-deposit">£10 deposit only after our call and your acceptance of the final quotation. Pay the remaining £30 after your shoot.</p><a class="btn" data-photo-book href="/start-a-project/?enquiry_service=photography">Plan your shoot ↗</a><a class="dx-cta" href="/service/photography/">Explore photography services ↗</a></div><div class="calculator-step" data-step="fitness">
 	<div class="fitness-preview">
 		<img class="fitness-preview__image" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt="" loading="eager">
 		<div class="fitness-preview__content">
@@ -56,7 +58,7 @@
 				<span class="service-option__number" aria-hidden="true"><?php echo esc_html(sprintf('%02d', $index + 1)); ?></span>
 				<?php if ($service['image']) : ?><img class="service-option__image" src="<?php echo esc_url($service['image']); ?>" alt="" loading="lazy"><?php endif; ?>
 				<span class="service-option__copy"><strong><?php echo esc_html($service['title']); ?></strong><span><?php echo esc_html($service['excerpt']); ?></span></span>
-				<span class="service-option__price"><?php echo $service['fixed'] ? '' : 'From '; ?>£<?php echo esc_html(number_format($service['price'], 0)); ?><?php if ($service['monthly']) : ?><small>/ month</small><?php endif; ?></span>
+				<span class="service-option__price"><small class="dx-price-from">FROM</small> £<?php echo esc_html(number_format($service['price'], 0)); ?><?php if ($service['monthly']) : ?><small>/ month</small><?php endif; ?></span>
 				<span class="custom-radio"></span>
 			</label>
 			<details class="service-option__details"><summary aria-label="Explore details for <?php echo esc_attr($service['title']); ?>">Explore details</summary><div class="service-option__content"><ul class="service-detail-list"><?php foreach (preg_split('/\r\n|\r|\n/', $service['features'] ?: $service['excerpt']) as $detail) : if (!trim($detail)) continue; ?><li><?php echo esc_html(trim($detail)); ?></li><?php endforeach; ?></ul></div></details>
@@ -74,19 +76,19 @@
 					<label>
 						<input type="radio" name="scope" value="small">
 						<span class="custom-radio"></span>
-						Small (1–3 Pages / Simple Functionality)
+						<span data-scope-label="small">Small (1–3 Pages / Simple Functionality)</span>
 					</label>
 
 					<label>
 						<input type="radio" name="scope" value="medium">
 						<span class="custom-radio"></span>
-						Medium (4–8 Pages / Moderate Functionality)
+						<span data-scope-label="medium">Medium (4–8 Pages / Moderate Functionality)</span>
 					</label>
 
 					<label>
 						<input type="radio" name="scope" value="large">
 						<span class="custom-radio"></span>
-						Large (9+ Pages / Complex Functionality)
+						<span data-scope-label="large">Large (9+ Pages / Complex Functionality)</span>
 					</label>
 				</div>
 			</div>
@@ -95,6 +97,7 @@
 				<h2 class="step-title">What’s your project type?</h2>
 
 				<div class="options-group long">
+<label><input type="radio" name="type" value="gaming"><span class="custom-radio"></span>Gaming</label>
 					<label>
 						<input type="radio" name="type" value="business">
 						<span class="custom-radio"></span>
@@ -188,25 +191,25 @@
 					<label>
 						<input type="radio" name="timeline" value="no_rush">
 						<span class="custom-radio"></span>
-						No Rush (12+ Weeks Turnaround)
+						<span class="timeline-option">No Rush <span class="timeline-option__timing">12+ Weeks turnaround</span></span>
 					</label>
 
 					<label>
 						<input type="radio" name="timeline" value="flexible">
 						<span class="custom-radio"></span>
-						Standard (6-12 Weeks Turnaround)
+						<span class="timeline-option">Standard <span class="timeline-option__timing">5 - 12 Week turnaround</span></span>
 					</label>
 
 					<label>
 						<input type="radio" name="timeline" value="priority">
 						<span class="custom-radio"></span>
-						Priority (1-4 Weeks Turnaround)
+						<span class="timeline-option">Priority <span class="timeline-option__timing">1 - 4 Weeks turnaround</span></span>
 					</label>
 
 					<label>
 						<input type="radio" name="timeline" value="urgent">
 						<span class="custom-radio"></span>
-						Urgent (&lt;7 Day Turnaround)
+						<span class="timeline-option">Urgent <span class="timeline-option__timing">&lt;7 Day turnaround</span></span>
 					</label>
 				</div>
 			</div>
@@ -259,14 +262,20 @@
 					It’s a considered starting point - with no obligation and no pressure to proceed.
 				</p>
 
-<div class="final-mobile-estimate"><p>Estimated investment</p><span class="price">£0.00</span></div><button type="button" class="summary-edit" data-edit-personalisation>Add personalisation</button>
+<button type="button" class="dx-cta" data-open-payment>Explore payment options ↗</button><dialog class="dx-payment-dialog" aria-labelledby="dx-payment-title"><fieldset class="dx-payment-options"><legend id="dx-payment-title">Payment options</legend><p>Nothing is payable now. The £50 deposit is due only after our call and your acceptance of the final quotation, before work begins. It is included in the total.</p><div class="dx-payment-grid">
+<label data-plan="full"><input type="radio" name="payment_plan" value="full" checked><div><h4>Pay in full</h4><p>Pay the remaining balance before work begins.</p></div></label>
+<label data-plan="three"><input type="radio" name="payment_plan" value="three"><div><h4>Pay in 3</h4><p>Instalments on completion of design, completion of development, and 30 days post-launch.</p></div></label>
+<label data-six-option data-plan="six"><input type="radio" name="payment_plan" value="six"><div><h4>Pay in 6</h4><p>Monthly instalments with a one-off 5% charge on the full quote. Available for quotes over £600.</p></div></label>
+<label data-plan="custom"><input type="radio" name="payment_plan" value="custom"><div><h4>Custom Instalment Plan</h4><p>Let’s discuss a payment schedule during our call.</p></div></label>
+</div><dl data-payment-summary aria-live="polite" aria-atomic="true"></dl></fieldset><div class="dx-payment-dialog-footer"><button type="button" data-close-payment class="dx-cta">Done ×</button></div></dialog><div class="final-mobile-estimate"><p>Estimated investment</p><span class="price">£0.00</span></div><button type="button" class="summary-edit" data-edit-personalisation>Add personalisation</button>
 <div class="personalisation-editor" hidden><h3>Make this estimate yours</h3><p>Add your details for a personalised proposal.</p><div class="personalisation-editor__fields"><label>Your name (optional)<input type="text" data-edit-name></label><label>Company / organisation (optional)<input type="text" data-edit-company></label></div><div class="personalisation-editor__actions"><button type="button" class="btn" data-save-personalisation>Save details</button><button type="button" class="summary-edit" data-close-personalisation>Cancel</button></div></div>
 
 				<div class="invoice-summary is-hidden" id="invoice-summary">
-					<label for="invoice-link">Your estimate reference</label>
+					<label for="invoice-link">Client reference number</label>
 					<p>Keep this reference handy if you'd like to discuss your estimate with me.</p>
 
 					<div class="copy-field">
+						<div class="copy-field__url">
 						<input
 							id="invoice-link"
 							type="text"
@@ -277,11 +286,12 @@
 						<button
 							type="button"
 							class="btn btn-outline copy-invoice"
-							aria-label="Copy link"
+							aria-label="Copy reference number"
 							aria-live="polite"
 						>
-							<i class="fa-solid fa-copy"></i>
+							<span class="copy-invoice__text">Copy</span><i class="fa-solid fa-copy" aria-hidden="true"></i>
 						</button>
+						</div>
 
 						<a
 							href="#"
@@ -315,7 +325,7 @@
 								<input type="text" name="name" placeholder="Your Name" required>
 								<input type="email" name="email" placeholder="Your Email" required>
 
-								<button type="button" class="btn send-email-confirm">
+								<button type="button" class="btn dx-cta send-email-confirm">
 									Send Proposal <i class="fa-solid fa-paper-plane"></i>
 								</button>
 							</div>
@@ -337,7 +347,7 @@
 
 				<h4>What would you like to do next?</h4>
 
-				<div class="summary-actions"><a class="btn calculator-enquire" href="<?php echo esc_url(home_url('/start-a-project/?from_calculator=1')); ?>">Start this project ↗</a>			
+				<div class="summary-actions"><a class="btn" data-register-estimate href="/sign-up/?from_calculator=1">Create your client account ↗</a><a class="btn calculator-enquire" href="<?php echo esc_url(home_url('/start-a-project/?from_calculator=1')); ?>">Start this project ↗</a>			
 					<button class="btn download-pdf">
 						Download estimate (PDF)
 						<i class="fa-solid fa-file-pdf"></i>
@@ -375,7 +385,7 @@
 	</div>
 		</div>
 		<div class="calculator-summary">
-			<div class="summary-welcome"><p class="summary-kicker">YOUR NEXT CHAPTER</p><h2>Your project<br>starts here.</h2><p>Choose your direction and shape a plan around what matters to you.</p><span>DESIGN · TECHNOLOGY · PERSONAL GROWTH</span></div>
+			<div class="summary-welcome"><p class="summary-kicker">YOUR NEXT CHAPTER</p><h2>Your <span data-journey-word>project</span><br><span data-journey-verb>starts</span> here.</h2><p>Choose your direction and shape a plan around what matters to you.</p><span>DESIGN · TECHNOLOGY · PERSONAL GROWTH</span></div>
 			<div class="summary-fitness"><img src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt=""><span>N118 FITNESS · LONDON BUILT</span></div>
 			<div class="summary-content"><div class="retainer-capacity" hidden></div><div class="package-recommendation" hidden aria-live="polite"></div><dialog class="package-comparison" aria-label="Compare monthly support packages" hidden></dialog>
 				<ul class="summary-breakdown"></ul>
