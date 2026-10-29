@@ -18,50 +18,30 @@ get_header();
             <nav class="dxb-nav" aria-label="Buses sections">
                 <a href="#buses-overview" aria-current="location">Overview</a><a href="#routes">Routes</a><a href="#bus-diary">Bus Diary</a><a href="#news">News &amp; Views</a><a href="#bus-models">Bus Models</a><a href="#photography">Photography</a>
             </nav>
-        <section id="routes" class="dxb-explorer dxb-panel" aria-labelledby="dxb-route-heading">
-            <div class="dxb-explorer-main"><div class="dxb-query-intro">
-                <div class="dxb-rule"></div><p class="dxb-eyebrow">Explore the network</p>
-                <h2 id="dxb-route-heading">Where would you like to go?</h2>
-                <p class="dxb-muted">Find a route. Discover its story.</p>
-                </div><div class="dxb-query-controls"><form id="dxb-search" class="dxb-search" role="search" aria-label="Find a bus route">
-                    <label class="dxb-sr" for="dxb-route-input">London bus route</label>
-                    <span aria-hidden="true" class="dxb-search-icon">⌕</span>
-                    <input id="dxb-route-input" name="route" type="search" placeholder="Enter a route, e.g. N98" autocomplete="off" maxlength="6" list="dxb-route-options" spellcheck="false">
-                    <datalist id="dxb-route-options"></datalist><button class="dxb-button" type="submit">Explore <span aria-hidden="true">↗</span></button>
-                </form>
-                <div class="dxb-chips dxb-recent" aria-label="Recent routes"><?php foreach(['2','6','8','N98'] as $r): ?><button type="button" data-route="<?php echo esc_attr($r); ?>" aria-pressed="false"><?php echo esc_html($r); ?></button><?php endforeach; ?></div>
-                <p id="dxb-status" class="dxb-status" role="status" aria-live="polite">Choose a route to explore the London bus network.</p>
-                </div><div class="dxb-loader" role="status"><span></span>Loading Route Information</div><div id="dxb-route-state" class="dxb-route-state" hidden></div><div id="dxb-result" hidden>
-                    <div class="dxb-route-identity"><h3 id="dxb-route-number"></h3><div><span class="dxb-eyebrow" id="dxb-route-type"></span><p id="dxb-route-description"></p></div></div>
-                    <div class="dxb-tabs" role="tablist" aria-label="Route information">
-                        <?php foreach(['pinned'=>'Pinned Buses','overview'=>'Overview','arrivals'=>'Stops & Arrivals','line'=>'Line','photos'=>'Photos','stories'=>'Stories','news'=>'News','discussion'=>'Discussion'] as $id=>$label): ?><button type="button" id="tab-<?php echo $id; ?>" role="tab" aria-controls="panel-<?php echo $id; ?>" aria-selected="<?php echo $id==='overview'?'true':'false'; ?>" tabindex="<?php echo $id==='overview'?'0':'-1'; ?>" data-tab="<?php echo $id; ?>"><?php echo $id==='pinned'?'Pinned<span class="dx-pin-desktop"> Buses</span>':esc_html($label); ?></button><?php endforeach; ?>
-                    </div>
-                    <div id="dxb-route-facts" aria-live="polite"></div><div id="dxb-consultation-notice" aria-live="polite"></div>
-                    <div id="panel-pinned" role="tabpanel" aria-labelledby="tab-pinned" class="dxb-tab-panel" hidden><div id="dxb-marked"></div></div>
-<div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" class="dxb-tab-panel">
-                        <div id="dxb-endpoints"></div><p class="dxb-small dxb-muted">Explore stops and arrival predictions, or discover photographs and journeys from the archive.</p>
-                        <details class="dxb-details"><summary>Route details <span aria-hidden="true">+</span></summary><p id="dxb-route-detail"></p><p class="dxb-small">Route information from TfL. Photographs and diary entries are a personal archive and may show earlier operations.</p></details>
-                        <button type="button" id="dxb-share" class="dxb-text-button">Copy route link <span aria-hidden="true">↗</span></button>
-                    </div>
-                    <div id="panel-arrivals" role="tabpanel" aria-labelledby="tab-arrivals" class="dxb-tab-panel" hidden>
-                        <div class="dxb-selects"><label>Direction<select id="dxb-direction"><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select></label><label>Bus stop<select id="dxb-stop"><option value="">Choose a stop</option></select></label></div>
-                        <label class="dxb-advanced-toggle"><input type="checkbox" id="dxb-advanced"> Enthusiast / Veg Mode</label><div id="dxb-tracking" aria-live="polite"></div>
-                        <div id="dxb-arrivals" aria-live="polite"><p class="dxb-small">Choose a stop for live arrival predictions.</p></div><p id="dxb-updated" class="dxb-small dxb-muted"></p>
-                    </div>
-                    <div id="panel-line" role="tabpanel" aria-labelledby="tab-line" class="dxb-tab-panel" hidden><label for="dxb-line-direction">Direction</label><select id="dxb-line-direction"><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select><div id="dxb-line-stops" aria-live="polite"></div></div>
-                    <div id="panel-photos" role="tabpanel" aria-labelledby="tab-photos" class="dxb-tab-panel" hidden></div>
-                    <div id="panel-news" role="tabpanel" aria-labelledby="tab-news" class="dxb-tab-panel" aria-live="polite" hidden></div>
-                    <div id="panel-discussion" role="tabpanel" aria-labelledby="tab-discussion" class="dxb-tab-panel" hidden><h3>Route Discussion</h3><p class="dxb-small">Share a sighting, question or memory. Guest comments appear after moderation. Your name and comment will be public; please avoid personal contact details.</p><div id="dxb-comments"></div><form id="dxb-comment-form"><label><span class="dxb-visually-hidden">Your Name</span><input placeholder="Your Name" name="name" required minlength="2" maxlength="60" autocomplete="nickname"></label><label><span class="dxb-visually-hidden">Your Comment</span><textarea placeholder="Your Comment" name="body" required minlength="5" maxlength="2000" rows="5"></textarea></label><label class="dxb-honeypot" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label><button class="dxb-button" type="submit">Submit For Review ↗</button><p id="dxb-comment-status" role="status"></p></form></div>
-                    <div id="panel-stories" role="tabpanel" aria-labelledby="tab-stories" class="dxb-tab-panel" hidden></div>
-                </div>
-                <noscript><p>Enable JavaScript to use the live route explorer. The photo archive and journey links below are still available.</p></noscript>
-                <p class="dxb-source">Route &amp; arrival data: <a href="https://tfl.gov.uk/modes/buses/">Transport for London ↗</a></p>
-            </div>
-            <aside class="dxb-explorer-aside">
-                <div><p class="dxb-eyebrow">Your next journey</p><h2>See the city from<br>a different seat.</h2></div>
-                <figure><img id="dxb-route-photo" src="<?php echo esc_url($featured['image']??$hero); ?>" alt="<?php echo esc_attr($featured ? 'From the '.$featured['route'].' diary' : 'London buses at night'); ?>" decoding="async"><figcaption id="dxb-route-caption"><?php echo esc_html($featured ? 'From the '.$featured['route'].' diary · '.$featured['date'] : 'London after dark'); ?></figcaption></figure>
-            </aside>
-        </section>
+		<section id="routes" class="dxbus-lookup dxb-panel" aria-labelledby="dxbus-lookup-title">
+			<div id="dxbus-lookup" class="dxbus-lookup__inner">
+				<div class="dxbus-lookup__intro">
+					<p class="dxb-eyebrow">Your next journey</p>
+					<h2 id="dxbus-lookup-title">Where are<br>we heading?</h2>
+					<p>Explore London's bus routes, live arrivals, vehicles and the stories behind every journey.</p>
+				</div>
+				<div class="dxbus-lookup__search">
+					<form id="dxbus-lookup-form" data-dxbus-lookup-form class="dxbus-lookup__form" role="search" action="<?php echo esc_url( home_url( '/buses/' ) ); ?>" method="get">
+						<label for="dxbus-lookup-input">Find a London bus route</label>
+						<div class="dxbus-lookup__field">
+							<span aria-hidden="true">⌕</span>
+							<input id="dxbus-lookup-input" data-dxbus-route-input name="route" type="search" placeholder="Route number, e.g. 112 or N118" autocomplete="off" spellcheck="false" maxlength="12" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dxbus-lookup-options" aria-describedby="dxbus-lookup-status" required>
+							<button type="submit">Open route dashboard <span aria-hidden="true">↗</span></button>
+						</div>
+						<ul id="dxbus-lookup-options" data-dxbus-suggestions class="dxbus-lookup__options" role="listbox" aria-label="Matching routes" hidden></ul>
+					</form>
+					<p id="dxbus-lookup-status" data-dxbus-lookup-status class="dxbus-lookup__status" role="status" aria-live="polite">Search by route number to begin.</p>
+					<div id="dxbus-lookup-recent" data-dxbus-recent class="dxbus-lookup__recent" aria-label="Recently viewed routes"></div>
+					<p class="dxbus-lookup__source">Live route information from <a href="https://tfl.gov.uk/modes/buses/">Transport for London ↗</a></p>
+					<noscript><p>Enter a route number and select Open route dashboard. The dashboard’s live arrivals need JavaScript.</p></noscript>
+				</div>
+			</div>
+		</section>
         <section id="bus-diary" class="dxb-section" aria-labelledby="diary-heading">
             <header class="dxb-section-heading"><div><p class="dxb-eyebrow">From the bus diary</p><h2 id="diary-heading">The journey is the story.</h2></div><a href="#dxb-journeys">All journeys <span aria-hidden="true">↗</span></a></header>
             <?php if($featured): ?>

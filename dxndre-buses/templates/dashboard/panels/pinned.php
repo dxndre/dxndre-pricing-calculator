@@ -1,0 +1,2 @@
+<?php defined( 'ABSPATH' ) || exit; ?>
+<header class="dxbus-view__head"><p class="dxbus-eyebrow">Keep an eye on your favourites</p><h2>Pinned buses</h2><p>Your saved registrations stay in this browser. Open a bus to see its latest predictions across the network.</p></header><div class="dxbus-card"><div class="dxbus-card__body" id="dxb-marked"><p class="dxbus-empty">No pinned buses yet. Pin a registration from Live tracking or Route explorer.</p></div></div>

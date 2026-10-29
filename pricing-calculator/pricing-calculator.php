@@ -44,7 +44,7 @@ function dx_pricing_calculator_assets() {
 		'DX_PRICING',
 		[
 			'prices'   => dx_pricing_config(),
-			'ajax_url' => admin_url('admin-ajax.php'),
+			'ajax_url' => add_query_arg('_dx_pricing_nonce', wp_create_nonce('dx_pricing_public'), admin_url('admin-ajax.php')),
 		]
 	);
 

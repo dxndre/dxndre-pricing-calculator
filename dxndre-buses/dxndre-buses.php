@@ -178,6 +178,7 @@ require_once __DIR__.'/route-extras.php';
 require_once __DIR__.'/route-discussion.php';
 
 require_once __DIR__ . '/route-timetable.php';
+require_once __DIR__ . '/route-dashboard.php';
 
 // A single route-wide feed supplies approximate positions without one request per stop.
 add_action('rest_api_init', function () {
@@ -190,12 +191,17 @@ add_action('rest_api_init', function () {
             if (is_wp_error($data)) return $data;
             usort($data, static fn($a,$b) => strcmp($a['expectedArrival'] ?? '', $b['expectedArrival'] ?? ''));
             $vehicles = [];
+            $as_of = '';
+            foreach ($data as $source_row) {
+                $stamp = $source_row['timestamp'] ?? '';
+                if ($stamp && strtotime($stamp) <= time() + 30 && strcmp($stamp, $as_of) > 0) $as_of = $stamp;
+            }
             foreach ($data as $row) {
                 $reg = $row['vehicleId'] ?? '';
                 if (!$reg || isset($vehicles[$reg]) || strtotime($row['expectedArrival'] ?? '') < time() - 15) continue;
-                $vehicles[$reg] = ['registration'=>$reg, 'stopId'=>$row['naptanId'] ?? '', 'stop'=>$row['stationName'] ?? '', 'direction'=>$row['direction'] ?? '', 'destination'=>$row['destinationName'] ?? '', 'expected'=>$row['expectedArrival'] ?? ''];
+                $vehicles[$reg] = ['registration'=>$reg, 'stopId'=>$row['naptanId'] ?? '', 'stop'=>$row['stationName'] ?? '', 'direction'=>$row['direction'] ?? '', 'destination'=>$row['destinationName'] ?? '', 'expected'=>$row['expectedArrival'] ?? '', 'route'=>$row['lineName'] ?? strtoupper($route), 'location'=>$row['currentLocation'] ?? '', 'timestamp'=>$row['timestamp'] ?? ''];
             }
-            return ['vehicles'=>array_values($vehicles), 'retrieved'=>gmdate('c')];
+            return ['vehicles'=>array_values($vehicles), 'retrieved'=>gmdate('c'), 'checked'=>gmdate('c'), 'asOf'=>$as_of ?: null, 'positionType'=>'next_predicted_stop', 'cacheSeconds'=>30];
         }
     ]);
 });

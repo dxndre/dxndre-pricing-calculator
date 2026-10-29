@@ -1,0 +1,2 @@
+<?php defined( 'ABSPATH' ) || exit; ?>
+<header class="dxbus-view__head"><p class="dxbus-eyebrow">What’s changing</p><h2>Route updates</h2><p>Service changes and TfL consultations, with dates and references from the original sources. Published changes are separate from live disruption reports.</p></header><div id="dxb-consultation-notice" aria-live="polite"></div><div id="dxbus-updates-content"><p class="dxbus-empty">Choose Updates to load the latest published route information.</p></div>

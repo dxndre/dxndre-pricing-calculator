@@ -9,12 +9,97 @@ require_once DX_PC_PATH . 'inc/install.php';
 
 register_activation_hook(__FILE__, 'dx_pricing_create_tables');
 
+/**
+ * Public calculator actions remain available to guests, but require a same-site
+ * WordPress nonce and bounded request rates. Nonces are not ownership proof.
+ */
+function dx_pricing_rate_key($operation) {
+	$group = in_array($operation, ['send', 'email'], true) ? 'mail' : $operation;
+	$address = is_string($_SERVER['REMOTE_ADDR'] ?? null) ? $_SERVER['REMOTE_ADDR'] : 'unknown';
+	return 'dx_pc_rate_' . $group . '_' . hash_hmac('sha256', $address, wp_salt('nonce'));
+}
+
+function dx_pricing_request_error($operation) {
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') return new WP_Error('method_not_allowed', 'Please submit the calculator form again.', ['status'=>405]);
+	$nonce = $_POST['_dx_pricing_nonce'] ?? ($_GET['_dx_pricing_nonce'] ?? '');
+	if (!is_string($nonce) || !wp_verify_nonce(sanitize_text_field(wp_unslash($nonce)), 'dx_pricing_public')) return new WP_Error('invalid_nonce', 'Your calculator session has expired. Refresh the page and try again.', ['status'=>403]);
+	$limits = ['finalize'=>60, 'pdf'=>20, 'send'=>5, 'email'=>5];
+	if (!isset($limits[$operation])) return new WP_Error('invalid_action', 'This calculator action is not available.', ['status'=>400]);
+	if (isset($_POST['state']) && (!is_string($_POST['state']) || strlen($_POST['state']) > MB_IN_BYTES)) return new WP_Error('invalid_state', 'The calculator data is too large or invalid. Please start again.', ['status'=>400]);
+	$key = dx_pricing_rate_key($operation);
+	$now = time();
+	$bucket = get_transient($key);
+	if (!is_array($bucket) || (int)($bucket['until'] ?? 0) <= $now) $bucket = ['count'=>0, 'until'=>$now + 15 * MINUTE_IN_SECONDS];
+	if ((int)$bucket['count'] >= $limits[$operation]) return new WP_Error('rate_limited', 'You have made several requests. Please wait a few minutes before trying again.', ['status'=>429]);
+	++$bucket['count'];
+	set_transient($key, $bucket, max(1, (int)$bucket['until'] - $now));
+	return null;
+}
+
+function dx_pricing_require_ajax($operation) {
+	$error = dx_pricing_request_error($operation);
+	if (is_wp_error($error)) {
+		$data = $error->get_error_data();
+		wp_send_json_error(['message'=>$error->get_error_message(), 'code'=>$error->get_error_code()], (int)($data['status'] ?? 400));
+	}
+	if (in_array($operation, ['send','email'], true) && !function_exists('wp_tempnam')) require_once ABSPATH . 'wp-admin/includes/file.php';
+}
+
+/** Read only the existing HttpOnly calculator-claim cookie, never a request token. */
+function dx_pricing_guest_claims() {
+	$cookie = $_COOKIE['dxcp_estimate_claims'] ?? '';
+	if (!is_string($cookie) || strlen($cookie) > 4096) return [];
+	$claims = json_decode(base64_decode(wp_unslash($cookie), true) ?: '', true);
+	return is_array($claims) ? array_slice($claims, -8, null, true) : [];
+}
+
+/** Preserve guest-email access even when the portal theme is not active. */
+function dx_pricing_remember_guest_claim($reference) {
+	if (is_user_logged_in() || headers_sent() || function_exists('dxcp_billing_remember_guest_estimate')) return;
+	$token = get_transient('dx_estimate_edit_' . $reference);
+	if (!is_string($token) || strlen($token) < 20 || strlen($token) > 100) return;
+	$claims = dx_pricing_guest_claims();
+	unset($claims[$reference]);
+	$claims[$reference] = $token;
+	$value = base64_encode(wp_json_encode(array_slice($claims, -8, null, true)));
+	setcookie('dxcp_estimate_claims', $value, ['expires'=>time()+30*DAY_IN_SECONDS, 'path'=>defined('COOKIEPATH') && COOKIEPATH ? COOKIEPATH : '/', 'secure'=>is_ssl(), 'httponly'=>true, 'samesite'=>'Lax']);
+	$_COOKIE['dxcp_estimate_claims'] = $value;
+}
+
+/**
+ * A reference/nonce alone never authorises saved quotation access. Once assigned,
+ * account ownership wins over every old guest cookie or calculator edit token.
+ */
+function dx_pricing_can_access_saved_quote($reference) {
+	if (!is_string($reference) || !preg_match('/\A[A-Za-z0-9][A-Za-z0-9_-]{0,49}\z/D', $reference)) return false;
+	$assignment = function_exists('dxcp_quote_assignment') ? dxcp_quote_assignment($reference) : get_option('dxcp_quote_' . hash('sha256', $reference), []);
+	if (!is_array($assignment)) return false;
+	if ($assignment) {
+		if (function_exists('dxcp_billing_may_edit_quote')) return dxcp_billing_may_edit_quote($reference);
+		if (current_user_can('manage_options')) return true;
+		$uid = get_current_user_id();
+		$project = absint($assignment['project_id'] ?? 0);
+		return $uid > 0 && (int)($assignment['client_id'] ?? 0) === $uid && get_post_type($project) === 'dxcp_project' && (int)get_post_meta($project, '_dxcp_client_id', true) === $uid;
+	}
+	if (current_user_can('manage_options')) return true;
+	$token = dx_pricing_guest_claims()[$reference] ?? '';
+	$stored = get_transient('dx_estimate_edit_' . $reference);
+	return is_string($token) && strlen($token) >= 20 && strlen($token) <= 100 && is_string($stored) && hash_equals($stored, $token);
+}
+
+function dx_pricing_require_saved_reference($state) {
+	$reference = $state['estimate_reference'] ?? '';
+	if ($reference !== '' && !dx_pricing_can_access_saved_quote($reference)) wp_send_json_error(['message'=>'This estimate is not available to your account or calculator session.'], 403);
+}
+
 // Finalising a quote
 
 add_action('wp_ajax_dx_finalize_quote', 'dx_finalize_quote');
 add_action('wp_ajax_nopriv_dx_finalize_quote', 'dx_finalize_quote');
 
 function dx_finalize_quote() {
+
+	dx_pricing_require_ajax('finalize');
 
 	if (empty($_POST['state'])) {
 		wp_send_json_error(['message' => 'Missing state']);
@@ -48,6 +133,7 @@ function dx_finalize_quote() {
 	}
 	if ($saved === false) wp_send_json_error(['message'=>'The estimate could not be saved. Please try again.']);
 	do_action('dx_quote_finalized', $invoice, $state, $is_new);
+	dx_pricing_remember_guest_claim($invoice);
 	wp_send_json_success(['invoice'=>$invoice, 'token'=>$token, 'url'=>home_url("/proposal/$invoice/")]);
 }
 
@@ -81,6 +167,8 @@ add_action('wp_ajax_nopriv_dx_send_quote', 'dx_send_quote');
 
 function dx_send_quote() {
 
+	dx_pricing_require_ajax('send');
+
 	if (empty($_POST['state'])) {
 		wp_send_json_error(['message' => 'Missing state']);
 	}
@@ -91,6 +179,7 @@ function dx_send_quote() {
 		wp_send_json_error(['message' => 'Invalid data']);
 	}
 
+	dx_pricing_require_saved_reference($state);
 	$state = dx_validate_estimate_state($state);
 	if (is_wp_error($state)) wp_die(esc_html($state->get_error_message()));
 
@@ -110,11 +199,14 @@ function dx_send_quote() {
 	$pdf_output = $dompdf->output();
 
 	// Save temporary file
-	$upload_dir = wp_upload_dir();
-	$filename   = 'project-proposal-' . time() . '.pdf';
-	$file_path  = trailingslashit($upload_dir['path']) . $filename;
-
-	file_put_contents($file_path, $pdf_output);
+	$temporary = wp_tempnam('dxndre-calculator-proposal.pdf');
+	$file_path = $temporary ? $temporary . '.pdf' : '';
+	if (!$temporary || !@rename($temporary, $file_path) || file_put_contents($file_path, $pdf_output) !== strlen($pdf_output)) {
+		if ($temporary) @unlink($temporary);
+		if ($file_path) @unlink($file_path);
+		wp_send_json_error(['message'=>'The proposal attachment could not be prepared.'], 500);
+	}
+	@chmod($file_path, 0600);
 
 	// Email recipient
 	$to = sanitize_email(
@@ -161,6 +253,8 @@ add_action('wp_ajax_nopriv_dx_generate_quote_pdf', 'dx_generate_quote_pdf');
 
 function dx_generate_quote_pdf() {
 
+	dx_pricing_require_ajax('pdf');
+
 	if (empty($_POST['state'])) {
 		wp_die('Missing data');
 	}
@@ -171,6 +265,7 @@ function dx_generate_quote_pdf() {
 		wp_die('Invalid data');
 	}
 
+	dx_pricing_require_saved_reference($state);
 	$state = dx_validate_estimate_state($state);
 	if (is_wp_error($state)) wp_die(esc_html($state->get_error_message()));
 
@@ -219,6 +314,8 @@ add_action('wp_ajax_nopriv_dx_email_quote_pdf', 'dx_email_quote_pdf');
 
 function dx_email_quote_pdf() {
 
+	dx_pricing_require_ajax('email');
+
 	// Retrieve and sanitise submitted details.
 	$name = sanitize_text_field(
 		wp_unslash($_POST['name'] ?? '')
@@ -240,7 +337,10 @@ function dx_email_quote_pdf() {
 	}
 
 	// Retrieve the saved quotation.
-	$quote = dx_get_quote_by_invoice(basename($invoice));
+	if (!dx_pricing_can_access_saved_quote($invoice)) {
+		wp_send_json_error(['message'=>'This estimate is not available to your account or calculator session.'], 403);
+	}
+	$quote = dx_get_quote_by_invoice($invoice);
 
 	if (!$quote) {
 		wp_send_json_error([
