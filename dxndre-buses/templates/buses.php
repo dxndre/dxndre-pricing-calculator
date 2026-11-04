@@ -16,7 +16,7 @@ get_header();
             <div class="dx-bus-cutout"><img src="<?php echo esc_url(get_template_directory_uri().'/assets/img/bus.png'); ?>" alt="London double-decker bus"></div><div class="dx-bus-hero-copy"><h2>Every route.<br>A story.</h2><p class="dxb-intro">Photographs, journeys and stories from across the network.</p><a class="dx-cta" href="#routes">Explore the network ↓</a></div>
         </section>
             <nav class="dxb-nav" aria-label="Buses sections">
-                <a href="#buses-overview" aria-current="location">Overview</a><a href="#routes">Routes</a><a href="#bus-diary">Bus Diary</a><a href="#news">News &amp; Views</a><a href="#bus-models">Bus Models</a><a href="#photography">Photography</a>
+                <a href="#buses-overview" aria-current="location">Overview</a><a href="#routes">Routes</a><a href="#bus-diary">Bus Diary</a><a href="#news">News &amp; Views</a><a href="#bus-polls">Polls</a><a href="#bus-models">Bus Models</a><a href="#photography">Photography</a>
             </nav>
 		<section id="routes" class="dxbus-lookup dxb-panel" aria-labelledby="dxbus-lookup-title">
 			<div id="dxbus-lookup" class="dxbus-lookup__inner">
@@ -57,6 +57,7 @@ get_header();
                 <?php if($articles): foreach($articles as $article): ?><a class="dxb-article" href="<?php echo esc_url(get_permalink($article)); ?>"><?php echo get_the_post_thumbnail($article,'medium',['loading'=>'lazy']); ?><div><p class="dxb-eyebrow"><?php echo esc_html(get_the_date('j M Y',$article)); ?></p><h3><?php echo esc_html($article->post_title); ?></h3><p><?php echo esc_html(wp_trim_words(get_the_excerpt($article),20)); ?></p></div><span aria-hidden="true">↗</span></a><?php endforeach; else: ?><div class="dxb-editorial-empty"><span class="dxb-eyebrow">Notes for the road ahead</span><h3>A space for a closer look.</h3><p>Route changes, tendering and the stories behind London's buses. New articles will appear here as the journal grows.</p><a href="#bus-diary">Explore the diary in the meantime ↗</a></div><?php endif; ?>
             </div><aside><p class="dxb-eyebrow">On the horizon</p><h2>Keep an eye on the network.</h2><a class="dxb-resource" href="https://tfl.gov.uk/forms/13923.aspx"><span>01</span><div><h3>Tender results</h3><p>Contract awards and tendering programmes from TfL.</p></div><span>↗</span></a><a class="dxb-resource" href="https://tfl.gov.uk/modes/buses/bus-changes"><span>02</span><div><h3>Upcoming changes</h3><p>Service changes across the London bus network.</p></div><span>↗</span></a><a class="dxb-resource" href="http://www.londonbusroutes.net/changes.htm"><span>03</span><div><h3>The wider picture</h3><p>Route and operator updates from London Bus Routes.</p></div><span>↗</span></a><p class="dxb-small dxb-muted">These links open the original sources.</p></aside>
         </section>
+        <?php if ( function_exists( 'dx_bus_polls_section' ) ) { echo dx_bus_polls_section(); } ?>
         <?php include __DIR__ . '/models.php'; ?>
         <section id="photography" class="dxb-section" aria-labelledby="photo-heading">
             <header class="dxb-section-heading"><div><p class="dxb-eyebrow">Through my lens</p><h2 id="photo-heading">A growing collection.</h2></div><span class="dxb-small dxb-muted"><?php echo count($photos); ?> photographs in the archive</span></header>

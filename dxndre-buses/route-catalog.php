@@ -1,5 +1,6 @@
 <?php
 if (!defined('ABSPATH')) exit;
+require_once __DIR__ . '/route-history.php';
 function dxb_doc($html,$legacy=false) {
     $doc=new DOMDocument();$old=libxml_use_internal_errors(true);
     $doc->loadHTML('<?xml encoding="'.($legacy?'Windows-1252':'UTF-8').'">'.$html,LIBXML_NONET);
@@ -66,7 +67,8 @@ function dxb_parse_catalog($html,$wiki,$details) {
                 $notes=preg_replace('/\[.*?\]/','',dxb_clean($cells->item($cells->length-1)));
                 $out[$id]['listingType']=$type;
                 if($type==='former'&&$cells->length>=5){
-                    $out[$id]['withdrawnDate']=trim(preg_replace('/\[.*?\]/','',dxb_clean($cells->item(3))));
+                    $out[$id]['withdrawnDates']=dxb_operating_dates($cells->item(3));
+                    $out[$id]['withdrawnDate']=$out[$id]['withdrawnDates'] ? end($out[$id]['withdrawnDates']) : '';
                     foreach($wx->query('.//a[@href]',$cells->item(0)) as $historyLink){$href=$historyLink->getAttribute('href');if(preg_match('~^(?:https://en.wikipedia.org)?(?:/wiki/|\./)(London_Buses_route_[A-Za-z0-9_]+)$~',$href,$hm))$out[$id]['historySource']='https://en.wikipedia.org/wiki/'.$hm[1];}
                 }
                 $out[$id]['listingNotes']=$notes;
@@ -88,23 +90,14 @@ function dxb_catalog() {
     if(count($data)<100)return new WP_Error('catalog_format','Route directory temporarily unavailable.',['status'=>503]);
     set_transient('dxb_catalog_v5',$data,HOUR_IN_SECONDS);return $data;
 }
-/** Read only explicit operating dates; never infer an opening year from a route number. */
-function dxb_route_history($id,$profile){
-    if($id==='82')return ['tenure'=>'1986–2017','start'=>'21 June 1986','end'=>'1 April 2017','source'=>'https://www.londonbuses.co.uk/_routes/withdrawn/082-3.html'];
-    $history=['end'=>$profile['withdrawnDate']??'','source'=>$profile['listingSource']??''];
-    if(empty($profile['historySource']))return $history;
-    $html=dxb_public_source('history_'.strtolower($id),$profile['historySource']);if(is_wp_error($html))return $history;
-    $x=dxb_doc($html);$start='';$end='';
-    foreach($x->query('//table[contains(concat(" ",normalize-space(@class)," ")," infobox ")]//tr') as $row){$th=$x->query('./th',$row)->item(0);$td=$x->query('./td',$row)->item(0);if(!$th||!$td)continue;$label=strtolower(dxb_clean($th));$value=trim(preg_replace('/\[.*?\]|\([^)]*\)/','',dxb_clean($td)));if(in_array($label,['began service','commenced service','first service','introduced']))$start=$value;if(in_array($label,['ended service','last service','withdrawn']))$end=$value;}
-    if(preg_match('/\b((?:18|19|20)\d{2})\b/',$start,$sy)&&preg_match('/\b((?:19|20)\d{2})\b/',$end,$ey)&&$sy[1]<=$ey[1]){
-        if(preg_match('/\b((?:19|20)\d{2})\b/',$history['end'],$listed)&&$listed[1]!==$ey[1])return $history;
-        return ['tenure'=>$sy[1].'–'.$ey[1],'start'=>$start,'end'=>$end,'source'=>$profile['historySource']];
-    }
-    return $history;
-}
 function dxb_route_profile($id,$live=true) {
     $catalog=dxb_catalog();if(is_wp_error($catalog))return $catalog;
     $id=strtoupper($id);$p=$catalog[$id]??[];
+    // Normalize older cached catalog entries without combining separate withdrawals.
+    if(!empty($p['withdrawnDate'])||!empty($p['withdrawnDates'])){
+        $dates=!empty($p['withdrawnDates'])?$p['withdrawnDates']:dxb_operating_dates($p['withdrawnDate']);
+        $p['withdrawnDates']=$dates;$p['withdrawnDate']=$dates?end($dates):'';
+    }
     $type=$p['listingType']??'regular';
     if($live&&in_array($type,['former','future']))$type='regular';
     if($type==='regular'){
