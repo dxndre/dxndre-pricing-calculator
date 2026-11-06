@@ -263,18 +263,20 @@ function dxbs_issue_requirements($client, $settings) {
 	if (empty($client['billing_address_1']) || empty($client['billing_city']) || empty($client['billing_postcode']) || empty($client['billing_country'])) return dxbs_error('client_address', 'Complete the client billing address, city, postcode and country before issue.');
 	return true;
 }
-function dxbs_snapshot($type, $row, $number) {
+function dxbs_snapshot($type, $row, $number, $draft_preview = false) {
 	$client = dxbs_client($row['client_id']);
 	$settings = dxbs_settings();
-	$required = dxbs_issue_requirements($client, $settings);
-	if ((int)$row['tax_minor'] > 0 && !$settings['vat_registered']) return dxbs_error('vat_changed', 'This draft charges VAT but the business is no longer configured as VAT registered. Correct the draft before issue.');
-	if (is_wp_error($required)) return $required;
+	if (!$draft_preview) {
+		$required = dxbs_issue_requirements($client, $settings);
+		if ((int)$row['tax_minor'] > 0 && !$settings['vat_registered']) return dxbs_error('vat_changed', 'This draft charges VAT but the business is no longer configured as VAT registered. Correct the draft before issue.');
+		if (is_wp_error($required)) return $required;
+	}
 	$draft = json_decode($row['draft_data'], true) ? : [];
 	$business = array_diff_key($settings, array_flip(['bank_account_holder', 'bank_name', 'bank_sort_code', 'bank_account_number', 'version']));
-	$client = array_diff_key($client, array_flip(['notes', 'version', 'category_ids', 'created_at', 'updated_at']));
+	$client = array_diff_key($client ?? [], array_flip(['notes', 'version', 'category_ids', 'created_at', 'updated_at']));
 	$cat = null;
 	foreach (dxbs_categories(false) as $c) if ($c['id'] === (int)$row['category_id'])$cat = $c;
-	return ['type' => $type, 'number' => $number, 'title' => $row['title'], 'version' => (int)$row['version'], 'issue_date' => wp_date('Y-m-d', null, new DateTimeZone('Europe/London')), 'supply_date' => $row['supply_date'], 'due_date' => $row['due_date'] ?? null, 'expires_at' => $row['expires_at'] ?? null, 'business' => $business, 'client' => $client, 'category' => $cat, 'lines' => $draft['lines'] ?? [], 'terms' => $draft['terms'] ?? '', 'notes' => $draft['notes'] ?? '', 'subtotal_minor' => (int)$row['subtotal_minor'], 'discount_minor' => (int)$row['discount_minor'], 'tax_minor' => (int)$row['tax_minor'], 'total_minor' => (int)$row['total_minor'], 'deposit_minor' => (int)($row['deposit_minor'] ?? 0), 'project_id' => (int)($row['project_id'] ?? 0), 'quote_id' => (int)($row['quote_id'] ?? 0), 'currency' => 'GBP'];
+	return ['type' => $type, 'number' => $number, 'title' => $row['title'], 'version' => (int)$row['version'], 'issue_date' => $draft_preview ? null : wp_date('Y-m-d', null, new DateTimeZone('Europe/London')), 'supply_date' => $row['supply_date'], 'due_date' => $row['due_date'] ?? null, 'expires_at' => $row['expires_at'] ?? null, 'business' => $business, 'client' => $client, 'category' => $cat, 'lines' => $draft['lines'] ?? [], 'terms' => $draft['terms'] ?? '', 'notes' => $draft['notes'] ?? '', 'subtotal_minor' => (int)$row['subtotal_minor'], 'discount_minor' => (int)$row['discount_minor'], 'tax_minor' => (int)$row['tax_minor'], 'total_minor' => (int)$row['total_minor'], 'deposit_minor' => (int)($row['deposit_minor'] ?? 0), 'project_id' => (int)($row['project_id'] ?? 0), 'quote_id' => (int)($row['quote_id'] ?? 0), 'currency' => 'GBP'];
 }
 function dxbs_issue_document($type, $id, $version, $confirm = false, $send = false) {
 	global $wpdb;

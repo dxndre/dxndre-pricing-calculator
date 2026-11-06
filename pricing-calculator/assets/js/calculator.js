@@ -1,4 +1,33 @@
 (() => {
+	function showEstimateNotice(message) {
+		const existing = document.querySelector('.dx-estimate-notice');
+		if (existing) {
+			existing.querySelector('p').textContent = message;
+			return;
+		}
+
+		const dialog = document.createElement('dialog');
+		dialog.className = 'dx-estimate-notice';
+		dialog.setAttribute('aria-labelledby', 'dx-estimate-notice-title');
+		const title = document.createElement('h2');
+		title.id = 'dx-estimate-notice-title';
+		title.textContent = 'Estimate notice';
+		const copy = document.createElement('p');
+		copy.textContent = message;
+		const close = document.createElement('button');
+		close.type = 'button';
+		close.textContent = 'Dismiss';
+		close.addEventListener('click', () => dialog.close());
+		const trigger = document.activeElement;
+		dialog.addEventListener('close', () => {
+			dialog.remove();
+			if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+		}, { once: true });
+		dialog.append(title, copy, close);
+		document.body.append(dialog);
+		dialog.showModal();
+	}
+
 
 	/* ==========================
 	   STATE + PRICING
@@ -61,6 +90,41 @@
 	const summaryIntroEl = calculator.querySelector('[data-summary-intro]');
 
 	if (!steps.length || !stepsContainer || !nextBtn || !prevBtn) return;
+
+	// Fetch a session token separately from the cacheable calculator page.
+	let sessionToken;
+	const getSessionToken = () => {
+		if (!sessionToken) {
+			sessionToken = fetch(DX_PRICING.ajax_url, {
+				method: 'POST',
+				cache: 'no-store',
+				body: new URLSearchParams({ action: 'dx_pricing_session' }),
+			}).then(async response => {
+				const result = await response.json();
+				if (!response.ok || !result.success || !result.data?.nonce) throw new Error('Calculator session unavailable');
+				return result.data.nonce;
+			}).catch(error => {
+				sessionToken = null;
+				throw error;
+			});
+		}
+		return sessionToken;
+	};
+
+	const requestEstimate = async (fields) => {
+		const send = async token => fetch(DX_PRICING.ajax_url, {
+			method: 'POST',
+			body: new URLSearchParams({ ...fields, _dx_pricing_nonce: await token }),
+		});
+		const token = getSessionToken();
+		const response = await send(token);
+		if (response.status !== 403) return response;
+		const error = await response.clone().json().catch(() => null);
+		if (error?.data?.code !== 'invalid_nonce') return response;
+		// Only retry rejections that occurred before any estimate operation ran.
+		if (sessionToken === token) sessionToken = null;
+		return send(getSessionToken());
+	};
 
 	const stepLookup = steps.reduce((acc, step) => {
 		const key = step.getAttribute('data-step');
@@ -635,27 +699,23 @@
 	const finalizeQuote = () => {
 		if (finalized) return Promise.resolve();
 		if (finalizePending) return finalizePending;
-		finalizePending = (async () => { do { if (!await persistQuote()) break; } while (!finalized); })().catch(() => { alert('The estimate could not be saved. Please try again.'); }).finally(() => { finalizePending = null; });
+		finalizePending = (async () => { do { if (!await persistQuote()) break; } while (!finalized); })().catch(() => { showEstimateNotice('The estimate could not be saved. Please try again.'); }).finally(() => { finalizePending = null; });
 		return finalizePending;
 	};
 	const persistQuote = async () => {
 		const revision = estimateRevision;
 
-		const res = await fetch(DX_PRICING.ajax_url, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-			body: new URLSearchParams({
-				action: 'dx_finalize_quote',
-				state: JSON.stringify(state),
-				estimate_reference: invoiceNumber,
-				estimate_token: estimateToken,
-			}),
+		const res = await requestEstimate({
+			action: 'dx_finalize_quote',
+			state: JSON.stringify(state),
+			estimate_reference: invoiceNumber,
+			estimate_token: estimateToken,
 		});
 
 		const data = await res.json();
 
 		if (!data.success) {
-			alert(data.data?.message || 'Could not generate estimate. Please try again.');
+			showEstimateNotice(data.data?.message || 'Could not generate estimate. Please try again.');
 			return;
 		}
 
@@ -935,13 +995,24 @@
 	calculator.querySelector('.download-pdf')?.addEventListener('click', async () => {
 		await finalizeQuote();
 		if (!finalized) return;
-		const form = document.createElement('form');
-		form.method = 'POST';
-		form.action = DX_PRICING.ajax_url;
-		for (const [name,value] of Object.entries({action:'dx_generate_quote_pdf',state:JSON.stringify(state)})) {
-			const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.append(input);
+		try {
+			const response = await requestEstimate({ action: 'dx_generate_quote_pdf', state: JSON.stringify(state) });
+			if (!response.ok || !response.headers.get('Content-Type')?.includes('application/pdf')) {
+				const error = await response.json().catch(() => null);
+				throw new Error(error?.data?.message || 'The estimate PDF could not be downloaded. Please try again.');
+			}
+
+			const url = URL.createObjectURL(await response.blob());
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = 'project-proposal.pdf';
+			document.body.append(link);
+			link.click();
+			link.remove();
+			setTimeout(() => URL.revokeObjectURL(url), 60_000);
+		} catch (error) {
+			showEstimateNotice(error.message || 'The estimate PDF could not be downloaded. Please try again.');
 		}
-		document.body.append(form);form.submit();form.remove();
 	});
 
 	calculator.querySelector('.download-pdf')?.addEventListener('click', () => {
@@ -1081,17 +1152,11 @@
 		}
 
 		try {
-			const res = await fetch(DX_PRICING.ajax_url, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-				},
-				body: new URLSearchParams({
-					action: 'dx_email_quote_pdf',
-					name,
-					email,
-					invoice: document.getElementById('invoice-link')?.value || '',
-				}),
+			const res = await requestEstimate({
+				action: 'dx_email_quote_pdf',
+				name,
+				email,
+				invoice: document.getElementById('invoice-link')?.value || '',
 			});
 
 			const data = await res.json();

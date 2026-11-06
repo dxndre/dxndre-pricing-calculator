@@ -19,7 +19,7 @@ require_once DX_PC_PATH . 'inc/quotes.php';
 require_once DX_PC_PATH . 'inc/ajax.php';
 
 add_shortcode('pricing_calculator', 'dx_pricing_calculator_shortcode');
-add_action('wp_enqueue_scripts', 'dx_pricing_calculator_assets');
+
 
 // Generate next invoice number
 
@@ -31,6 +31,8 @@ function dx_get_next_invoice_number() {
 }
 
 function dx_pricing_calculator_assets() {
+	if (wp_script_is('dx-pricing-calculator', 'enqueued')) return;
+
 	wp_enqueue_script(
 		'dx-pricing-calculator',
 		DX_PC_URL . 'assets/js/calculator.js',
@@ -44,7 +46,7 @@ function dx_pricing_calculator_assets() {
 		'DX_PRICING',
 		[
 			'prices'   => dx_pricing_config(),
-			'ajax_url' => add_query_arg('_dx_pricing_nonce', wp_create_nonce('dx_pricing_public'), admin_url('admin-ajax.php')),
+			'ajax_url' => admin_url('admin-ajax.php'),
 		]
 	);
 
@@ -55,9 +57,15 @@ function dx_pricing_calculator_assets() {
 		filemtime( DX_PC_PATH . 'assets/css/calculator.css' )
 	);
 }
-add_action('wp_enqueue_scripts', 'dx_pricing_calculator_assets');
+add_action('wp_enqueue_scripts', function () {
+	$post = get_queried_object();
+	if ($post instanceof WP_Post && has_shortcode($post->post_content, 'pricing_calculator')) {
+		dx_pricing_calculator_assets();
+	}
+});
 
 function dx_pricing_calculator_shortcode() {
+	dx_pricing_calculator_assets();
 	ob_start();
 	include DX_PC_PATH . 'templates/calculator.php';
 	return ob_get_clean();

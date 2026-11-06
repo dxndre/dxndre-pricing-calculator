@@ -216,6 +216,9 @@ function dxb_photo_technical($aid) {
  if(!empty($im['shutter_speed'])){$v=(float)$im['shutter_speed'];$out['Shutter']=$v<1?'1/'.round(1/$v).' s':$v.' s';}
  if(!empty($im['created_timestamp']))$out['Taken']=gmdate('j F Y, H:i',(int)$im['created_timestamp']);
  if(!empty($meta['width']))$out['Dimensions']=$meta['width'].' × '.$meta['height'];
+ $bytes = (int) ($meta['filesize'] ?? 0);
+ if (!$bytes && ($file = get_attached_file($aid))) $bytes = wp_filesize($file);
+ if ($bytes > 0) $out['File size'] = size_format($bytes, 1);
  $gps=get_post_meta($aid,'dxb_gps',true);if($gps)$out['gps']=$gps;
  return $out;
 }

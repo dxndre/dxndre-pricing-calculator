@@ -164,10 +164,7 @@ add_action('template_redirect', function () {
 		if (!$r)wp_die('Sign in to the account assigned to this document.', 'Private document', ['response' => 403]);
 		if (!empty($r['voided_at']) && !dxbs_is_manager())wp_die('This document was voided. Please review the current records in your client space.', 'Voided document', ['response' => 410]);
 		if (in_array($type, ['quote', 'invoice'], true) && !$r['issued_at']) {
-			$s = dxbs_snapshot($type, $r, 'DRAFT');
-			if (is_wp_error($s)) {
-				$s = ['type' => $type, 'number' => 'DRAFT', 'title' => $r['title'], 'supply_date' => $r['supply_date'], 'business' => dxbs_settings(), 'client' => dxbs_client($r['client_id']), 'lines' => $r['draft']['lines'] ?? [], 'total_minor' => $r['total_minor'], 'subtotal_minor' => $r['subtotal_minor'], 'tax_minor' => $r['tax_minor'], 'discount_minor' => $r['discount_minor']];
-			}
+			$s = dxbs_snapshot($type, $r, 'DRAFT', true);
 			$bytes = dxbs_pdf_bytes(dxbs_pdf_html($type, $s, true));
 			if (is_wp_error($bytes))wp_die(esc_html($bytes->get_error_message()));
 			header('Content-Type: application/pdf');

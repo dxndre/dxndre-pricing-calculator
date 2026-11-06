@@ -19,6 +19,15 @@ function dx_pricing_rate_key($operation) {
 	return 'dx_pc_rate_' . $group . '_' . hash_hmac('sha256', $address, wp_salt('nonce'));
 }
 
+add_action('wp_ajax_dx_pricing_session', 'dx_pricing_session');
+add_action('wp_ajax_nopriv_dx_pricing_session', 'dx_pricing_session');
+
+function dx_pricing_session() {
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') wp_send_json_error(['message'=>'Please submit the calculator form again.'], 405);
+	nocache_headers();
+	wp_send_json_success(['nonce'=>wp_create_nonce('dx_pricing_public')]);
+}
+
 function dx_pricing_request_error($operation) {
 	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') return new WP_Error('method_not_allowed', 'Please submit the calculator form again.', ['status'=>405]);
 	$nonce = $_POST['_dx_pricing_nonce'] ?? ($_GET['_dx_pricing_nonce'] ?? '');
