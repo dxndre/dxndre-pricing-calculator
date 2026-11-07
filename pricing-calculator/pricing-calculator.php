@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DXNDRE Pricing Calculator
  * Description: Multi-step project pricing calculator
- * Version: 2.0.1
+ * Version: 2.0.2
  */
 
 if (!defined('ABSPATH')) exit;

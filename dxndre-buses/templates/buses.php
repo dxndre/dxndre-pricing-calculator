@@ -30,7 +30,7 @@ get_header();
 						<label for="dxbus-lookup-input">Find a London bus route</label>
 						<div class="dxbus-lookup__field">
 							<span aria-hidden="true">⌕</span>
-							<input id="dxbus-lookup-input" data-dxbus-route-input name="route" type="search" placeholder="e.g. 112 or N118" autocomplete="off" spellcheck="false" maxlength="12" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dxbus-lookup-options" aria-describedby="dxbus-lookup-status" required>
+							<input id="dxbus-lookup-input" data-dxbus-route-input name="route" type="search" placeholder="Route number, e.g. 112 or N118" data-placeholder-desktop="Route number, e.g. 112 or N118" data-placeholder-mobile="e.g. 112 or N118" autocomplete="off" spellcheck="false" maxlength="12" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dxbus-lookup-options" aria-describedby="dxbus-lookup-status" required>
 							<button type="submit">Open route dashboard <span aria-hidden="true">↗</span></button>
 						</div>
 						<ul id="dxbus-lookup-options" data-dxbus-suggestions class="dxbus-lookup__options" role="listbox" aria-label="Matching routes" hidden></ul>

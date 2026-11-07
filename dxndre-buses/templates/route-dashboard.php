@@ -37,6 +37,11 @@ $context = dxb_dashboard_context();
 			<p class="dxbus-attribution">Route and prediction data: <a href="https://tfl.gov.uk/modes/buses/">Transport for London</a>. Fleet information: <a href="https://bustimes.org/">bustimes.org</a>. Predictions and estimated positions are not live GPS.</p>
 			<?php get_template_part( 'inc/site-footer' ); ?>
 		</main>
+		<nav class="dxbus-mobile-nav" aria-label="Quick route sections" role="tablist">
+			<?php foreach ( ['overview'=>'Overview','tracking'=>'Tracking','explorer'=>'Explorer','pinned'=>'Pinned','gallery'=>'Gallery'] as $mobile_view=>$mobile_label ): $mobile_legacy=['tracking'=>'arrivals','explorer'=>'line','gallery'=>'photos'][$mobile_view] ?? $mobile_view; $mobile_active=$context['view']===$mobile_view; ?>
+				<a id="dxbus-mobile-tab-<?php echo esc_attr($mobile_legacy); ?>" href="<?php echo esc_url(dxb_dashboard_route_url($context['route'],$mobile_view)); ?>" data-tab="<?php echo esc_attr($mobile_legacy); ?>" data-dxbus-nav="<?php echo esc_attr($mobile_view); ?>" role="tab" aria-controls="panel-<?php echo esc_attr($mobile_legacy); ?>" aria-selected="<?php echo $mobile_active?'true':'false'; ?>"<?php echo $mobile_active?' aria-current="page"':''; ?>><?php echo dxb_dashboard_icon($mobile_view); ?><span><?php echo esc_html($mobile_label); ?></span><?php if($mobile_view==='pinned'): ?><small data-dxbus-pinned-count hidden>0</small><?php endif; ?></a>
+			<?php endforeach; ?>
+		</nav>
 		<?php dxb_dashboard_part( 'lightbox', $context ); ?>
 	</div>
 	<?php get_template_part( 'inc/hire-modals' ); ?>

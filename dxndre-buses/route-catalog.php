@@ -93,6 +93,17 @@ function dxb_catalog() {
 function dxb_route_profile($id,$live=true) {
     $catalog=dxb_catalog();if(is_wp_error($catalog))return $catalog;
     $id=strtoupper($id);$p=$catalog[$id]??[];
+    // Route 618 was reused: its withdrawn Mill Hill service must not label the
+    // current Ivybridge school service, including when reading an older catalog cache.
+    if ($live && $id === '618') {
+        foreach ($p['workings'] ?? [] as $working) {
+            if (($working['label'] ?? '') !== 'School variant' || empty($working['destinations'])) continue;
+            unset($p['listingType'], $p['listingNotes'], $p['withdrawnDate'], $p['withdrawnDates'], $p['historySource']);
+            $p['listingEndpoints'] = $working['destinations'];
+            $p['listingSource'] = $p['source'] ?? '';
+            break;
+        }
+    }
     // Normalize older cached catalog entries without combining separate withdrawals.
     if(!empty($p['withdrawnDate'])||!empty($p['withdrawnDates'])){
         $dates=!empty($p['withdrawnDates'])?$p['withdrawnDates']:dxb_operating_dates($p['withdrawnDate']);

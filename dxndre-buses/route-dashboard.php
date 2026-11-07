@@ -162,12 +162,20 @@ function dxb_dashboard_context() {
 	$profile = is_wp_error( $profile ) ? array() : $profile;
 	$type = $profile['badgeType'] ?? ( preg_match( '/^n[0-9]+$/', $route ) ? 'night' : 'regular' );
 	$hero = $photos[0] ?? null;
-	$termini = $profile['listingEndpoints'] ?? ( $profile['workings'][0]['destinations'] ?? '' );
+	$main_termini = $profile['listingEndpoints'] ?? '';
+	$main_working = 'night' === $type ? 'Night service' : 'Main service';
+	foreach ( $profile['workings'] ?? array() as $working ) {
+		if ( ( $working['label'] ?? '' ) === $main_working && ! empty( $working['destinations'] ) ) {
+			$main_termini = $working['destinations'];
+			break;
+		}
+	}
+	$termini = $main_termini ?: ( $profile['workings'][0]['destinations'] ?? '' );
 	if ( ! $termini && $journeys ) {
 		$termini = trim( $journeys[0]['start'] . ' ↔ ' . $journeys[0]['end'], ' ↔' );
 	}
 	$view = dxb_dashboard_view( isset( $_GET['view'] ) ? wp_unslash( $_GET['view'] ) : ( isset( $_GET['tab'] ) ? wp_unslash( $_GET['tab'] ) : 'overview' ) );
-	$context = compact( 'route', 'all_photos', 'photos', 'journeys', 'error', 'profile', 'type', 'hero', 'termini', 'view' );
+	$context = compact( 'route', 'all_photos', 'photos', 'journeys', 'error', 'profile', 'type', 'hero', 'termini', 'main_termini', 'view' );
 	return $context;
 }
 
