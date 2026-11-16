@@ -20,8 +20,12 @@ function dxbs_finance_redirect($view, $result, $extra = []) {
 		$url = add_query_arg(array_merge(['section' => 'business', 'business_view' => $view], $extra), home_url('/dashboard/'));
 	}
 	else {
-		$url = add_query_arg(['section' => 'payments', 'business_notice' => is_wp_error($result) ? 'error' : 'saved'], home_url('/dashboard/'));
-		if (is_wp_error($result))set_transient('dxbs_client_notice_' . get_current_user_id(), $result->get_error_message(), 5 * MINUTE_IN_SECONDS);
+		$client_view = in_array($view, ['quotations', 'payments'], true) ? $view : 'payments';
+		$url = add_query_arg(['section' => $client_view, 'business_notice' => is_wp_error($result) ? 'error' : 'saved'], home_url('/dashboard/'));
+		set_transient('dxbs_client_notice_' . get_current_user_id(), [
+			'type' => is_wp_error($result) ? 'error' : 'success',
+			'message' => is_wp_error($result) ? $result->get_error_message() : 'Your quotation response has been recorded.',
+		], 5 * MINUTE_IN_SECONDS);
 	}
 	wp_safe_redirect($url);
 	exit;
@@ -36,29 +40,36 @@ add_action('admin_post_dxbs_issue_document', function () {
 	$p = dxbs_finance_post('dxbs_issue_document');
 	$type = sanitize_key($p['type'] ?? '');
 	$r = dxbs_issue_document($type, absint($p['id'] ?? 0), absint($p['version'] ?? 0), ($p['confirm_issue'] ?? '') === '1', ($p['send_email'] ?? '') === '1');
-	dxbs_finance_redirect($type === 'quote' ? 'quotations' : 'invoices', $r);
+	dxbs_finance_redirect($type === 'quote' ? 'quotations' : 'invoices', $r, ['document_id' => absint($p['id'] ?? 0)]);
 }
 );
 add_action('admin_post_dxbs_duplicate_quote', function () {
 	$p = dxbs_finance_post('dxbs_duplicate_quote');
-	dxbs_finance_redirect('quotations', dxbs_duplicate_quote(absint($p['id'] ?? 0)));
+	$result = dxbs_duplicate_quote(absint($p['id'] ?? 0), ($p['revision'] ?? '') === '1');
+	dxbs_finance_redirect('quotations', $result, is_int($result) ? ['document_id' => $result, 'edit_document' => 1] : ['document_id' => absint($p['id'] ?? 0)]);
 }
 );
 add_action('admin_post_dxbs_import_quote', function () {
 	$p = dxbs_finance_post('dxbs_import_quote');
-	dxbs_finance_redirect('quotations', dxbs_import_quote($p['reference'] ?? '', absint($p['client_id'] ?? 0), absint($p['category_id'] ?? 0), absint($p['project_id'] ?? 0), ($p['reviewed'] ?? '') === '1'));
+	$result = dxbs_import_quote($p['reference'] ?? '', absint($p['client_id'] ?? 0), absint($p['category_id'] ?? 0), absint($p['project_id'] ?? 0), ($p['reviewed'] ?? '') === '1');
+	dxbs_finance_redirect('quotations', $result, is_int($result) ? ['document_id' => $result, 'edit_document' => 1] : []);
 }
 );
 add_action('admin_post_dxbs_convert_quote', function () {
 	$p = dxbs_finance_post('dxbs_convert_quote');
-	dxbs_finance_redirect('invoices', dxbs_convert_quote(absint($p['id'] ?? 0), absint($p['version'] ?? 0), sanitize_key($p['plan'] ?? 'full'), absint($p['count'] ?? 1), $p['first_due_date'] ?? ''));
+	$id = absint($p['id'] ?? 0);
+	$result = dxbs_convert_quote($id, absint($p['version'] ?? 0), sanitize_key($p['plan'] ?? 'full'), absint($p['count'] ?? 1), $p['first_due_date'] ?? '');
+	dxbs_finance_redirect('quotations', $result, ['document_id' => $id]);
 }
 );
-add_action('admin_post_dxbs_accept_quote', function () {
-	$p = dxbs_finance_post('dxbs_accept_quote', false);
-	dxbs_finance_redirect('quotations', dxbs_accept_quote(absint($p['id'] ?? 0), absint($p['version'] ?? 0), ($p['confirmation'] ?? '') === '1'));
+foreach (['accepted' => 'dxbs_accept_quote', 'declined' => 'dxbs_decline_quote'] as $response => $action) {
+	add_action('admin_post_' . $action, function () use ($response, $action) {
+		$p = dxbs_finance_post($action, false);
+		$view = ($p['finance_view'] ?? '') === 'quotations' ? 'quotations' : 'payments';
+		$result = dxbs_quote_response(absint($p['id'] ?? 0), absint($p['version'] ?? 0), ($p['confirmation'] ?? '') === '1', $response);
+		dxbs_finance_redirect($view, $result);
+	});
 }
-);
 add_action('admin_post_dxbs_void_invoice', function () {
 	$p = dxbs_finance_post('dxbs_void_invoice');
 	dxbs_finance_redirect('invoices', dxbs_void_invoice(absint($p['id'] ?? 0), $p['reason'] ?? '', ($p['confirm_void'] ?? '') === '1'));
@@ -86,13 +97,18 @@ add_action('admin_post_dxbs_reverse_payment', function () {
 );
 add_action('admin_post_dxbs_receipt', function () {
 	$p = dxbs_finance_post('dxbs_receipt');
-	dxbs_finance_redirect('receipts', dxbs_create_receipt(absint($p['payment_id'] ?? 0), ($p['delivery'] ?? 'hold') === 'send' ? 'send' : 'hold'));
+	$result = dxbs_create_receipt(absint($p['payment_id'] ?? 0), ($p['delivery'] ?? '') === 'send' ? 'send' : 'hold');
+	dxbs_finance_redirect('receipts', $result, is_int($result) ? ['document_id' => $result] : []);
 }
 );
 add_action('admin_post_dxbs_send_document', function () {
 	$p = dxbs_finance_post('dxbs_send_document');
-	if (($p['confirm_send'] ?? '') !== '1')dxbs_finance_redirect('documents', dxbs_error('confirm_send', 'Explicitly authorise this document email.'));
-	dxbs_finance_redirect('documents', dxbs_send_document(sanitize_key($p['type'] ?? ''), absint($p['id'] ?? 0)));
+	$type = sanitize_key($p['type'] ?? '');
+	$id = absint($p['id'] ?? 0);
+	$view = ['quote' => 'quotations', 'invoice' => 'invoices', 'credit' => 'invoices', 'receipt' => 'receipts'][$type] ?? 'documents';
+	$extra = ['document_id' => $id, 'document_type' => $type];
+	if (($p['confirm_send'] ?? '') !== '1') dxbs_finance_redirect($view, dxbs_error('confirm_send', 'Explicitly authorise this document email.'), $extra);
+	dxbs_finance_redirect($view, dxbs_send_document($type, $id, is_string($p['recipient_email'] ?? null) ? trim($p['recipient_email']) : ''), $extra);
 }
 );
 add_action('admin_post_dxbs_retry_email', function () {
@@ -148,7 +164,8 @@ add_action('template_redirect', function () {
 		$invoice['reported'] = (bool)$GLOBALS['wpdb']->get_var($GLOBALS['wpdb']->prepare('SELECT id FROM ' . dxbs_table('payments') . " WHERE invoice_id=%d AND status='reported' LIMIT 1", $id));
 		$invoice['report_nonce'] = wp_create_nonce('dxbs_report_transfer_' . $id . '_' . $token);
 		$invoice['status'] = dxbs_invoice_status($row, dxbs_invoice_balance($id));
-		$invoice['project_total_minor'] = (int)($row['quote_id'] ? dxbs_record_raw('quote', $row['quote_id'])['total_minor'] : $row['total_minor']);
+		$quote = $row['quote_id'] ? dxbs_record_raw('quote', $row['quote_id']) : null;
+		$invoice['project_total_minor'] = (int)($quote['total_minor'] ?? $row['total_minor']);
 		if (function_exists('dxcp_business_render_transfer')) {
 			dxcp_business_render_transfer($invoice, $token);
 			exit;

@@ -86,12 +86,39 @@ function dxb_tfl($path,$ttl=300) {
     }
     set_transient($key,$data,$ttl); return $data;
 }
+/** Confirmed network changes can precede publication in the Unified API. */
+function dxb_confirmed_route( $id ) {
+    if ( strtolower( $id ) !== '10' || wp_date( 'Y-m-d', null, new DateTimeZone( 'Europe/London' ) ) < '2026-11-14' ) {
+        return null;
+    }
+    return [
+        'endpoints' => 'Battersea Bridge (South Side) ↔ Newington Green',
+        'source' => 'https://tfl.gov.uk/help-with-travel/ways-to-travel/bus-changes',
+    ];
+}
+
 function dxb_route_index() {
     $data=dxb_tfl('/Line/Mode/bus',DAY_IN_SECONDS);
     if(is_wp_error($data)) return $data;
-    return array_values(array_map(function($r){return ['id'=>$r['id'],'name'=>$r['name']];},$data));
+    $routes = array_values(array_map(function($r){return ['id'=>$r['id'],'name'=>$r['name']];},$data));
+    if ( dxb_confirmed_route( '10' ) && ! in_array( '10', array_column( $routes, 'id' ), true ) ) {
+        $routes[] = ['id' => '10', 'name' => '10'];
+    }
+    return $routes;
+}
+function dxb_public_route_directory() {
+    $routes = dxb_route_index();
+    if (is_wp_error($routes)) return $routes;
+    $catalog = get_transient('dxb_catalog_v5');
+    foreach ($routes as &$route) {
+        $name = strtoupper($route['name']);
+        $route['allDay'] = in_array($name, ['102', 'EL1'], true) || !empty($catalog[$name]['allDay']);
+    }
+    unset($route);
+    return $routes;
 }
 function dxb_route_exists($id) {
+    if ( dxb_confirmed_route( $id ) ) return true;
     $index=dxb_route_index(); if(is_wp_error($index)) return $index;
     foreach($index as $r) if($r['id']===$id) return true;
     return new WP_Error('route_not_found','That route was not found in the current TfL network. Try another route number.',['status'=>404]);
@@ -124,7 +151,7 @@ function dxb_service_type($id, $stops) {
 }
 
 add_action('rest_api_init',function(){
-    register_rest_route('dx-buses/v1','/routes',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>'dxb_route_index']);
+    register_rest_route('dx-buses/v1','/routes',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>'dxb_public_route_directory']);
     register_rest_route('dx-buses/v1','/route/(?P<route>[a-zA-Z0-9]{1,6})',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>function($r){
         $id=strtolower($r['route']); $valid=dxb_route_exists($id);
         if(is_wp_error($valid)) {
@@ -139,6 +166,11 @@ add_action('rest_api_init',function(){
         if(!in_array($dir,['inbound','outbound'],true)) return new WP_Error('bad_direction','Choose a valid direction.',['status'=>400]);
         $data=dxb_tfl('/Line/'.rawurlencode($id).'/Route/Sequence/'.$dir.'?excludeCrowding=true',HOUR_IN_SECONDS);
         if(is_wp_error($data)||empty($data['stopPointSequences'])){$other=$dir==='inbound'?'outbound':'inbound';$fallback=dxb_tfl('/Line/'.rawurlencode($id).'/Route/Sequence/'.$other.'?excludeCrowding=true',HOUR_IN_SECONDS);if(!is_wp_error($fallback)&&!empty($fallback['stopPointSequences'])){$data=$fallback;$dir=$other;}}
+        $confirmed = dxb_confirmed_route( $id );
+        if ( $confirmed && ( is_wp_error( $data ) || empty( $data['stopPointSequences'] ) ) ) {
+            return ['id'=>$id,'name'=>strtoupper($id),'direction'=>$dir,'branches'=>[$confirmed['endpoints']],
+                'stops'=>[],'serviceType'=>'regular','source'=>'TfL service announcement','liveFeedPending'=>true];
+        }
         if(is_wp_error($data))return $data;
         $stops=[];
         foreach(($data['stopPointSequences']??[]) as $seq) foreach(($seq['stopPoint']??[]) as $s) $stops[$s['id']]=['id'=>$s['id'],'name'=>$s['name'],'lat'=>$s['lat']??null,'lon'=>$s['lon']??null];

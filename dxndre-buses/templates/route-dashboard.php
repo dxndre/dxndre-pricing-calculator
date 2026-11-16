@@ -14,7 +14,7 @@ $context = dxb_dashboard_context();
 <body <?php body_class(); ?>>
 	<?php wp_body_open(); ?>
 	<a class="dxbus-skip" href="#dxbus-main">Skip to route workspace</a>
-	<div class="dxbus-app" data-route="<?php echo esc_attr( $context['route'] ); ?>" data-service-type="<?php echo esc_attr( $context['type'] ); ?>" data-route-theme="<?php echo 'night' === $context['type'] ? 'night' : 'day'; ?>" data-route-view="<?php echo esc_attr( $context['view'] ); ?>">
+	<div class="dxbus-app" data-route="<?php echo esc_attr( $context['route'] ); ?>" data-service-type="<?php echo esc_attr( $context['type'] ); ?>" data-route-all-day="<?php echo ! empty( $context['profile']['allDay'] ) || $context['type'] === '24hour' || strtoupper( $context['route'] ) === 'EL1' ? 'true' : 'false'; ?>" data-route-theme="<?php echo 'night' === $context['type'] ? 'night' : 'day'; ?>" data-route-view="<?php echo esc_attr( $context['view'] ); ?>">
 		<?php dxb_dashboard_part( 'sidebar', $context ); ?>
 		<main class="dxbus-main" id="dxbus-main" tabindex="-1">
 			<?php dxb_dashboard_part( 'topbar', $context ); ?>

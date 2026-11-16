@@ -10,7 +10,7 @@ function dxbs_rollback($code, $message) {
 function dxbs_account_client_id($uid = 0) {
 	global $wpdb;
 	$uid = $uid ? : get_current_user_id();
-	if (!$uid || ($uid !== get_current_user_id() && !dxbs_is_manager())) return 0;
+	if (!$uid || ((int)$uid !== get_current_user_id() && !dxbs_is_manager())) return 0;
 	return (int)$wpdb->get_var($wpdb->prepare('SELECT id FROM ' . dxbs_table('clients') . ' WHERE wp_user_id=%d', $uid));
 }
 function dxbs_type_table($type) {
@@ -36,9 +36,15 @@ function dxbs_document($type, $id) {
 	foreach (['id', 'client_id', 'category_id', 'project_id', 'quote_id', 'invoice_id', 'payment_id', 'version', 'total_minor', 'subtotal_minor', 'tax_minor', 'discount_minor', 'deposit_minor'] as $key) if (isset($row[$key]))$row[$key] = (int)$row[$key];
 	$row['snapshot'] = json_decode($row['snapshot'] ?? '{}', true) ? : [];
 	$row['draft'] = json_decode($row['draft_data'] ?? '{}', true) ? : [];
-	$row['lines'] = [];
-	if (in_array($type, ['quote', 'invoice'], true))$row['lines'] = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . dxbs_table($type . '_lines') . ' WHERE ' . $type . '_id=%d ORDER BY position,id', $id), ARRAY_A);
-	else $row['lines'] = $row['snapshot']['lines'] ?? [];
+	$row['lines'] = $row['snapshot']['lines'] ?? [];
+	if (!$row['lines'] && in_array($type, ['quote', 'invoice'], true)) {
+		$row['lines'] = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . dxbs_table($type . '_lines') . ' WHERE ' . $type . '_id=%d ORDER BY position,id', $id), ARRAY_A);
+	}
+	if (in_array($type, ['receipt', 'credit'], true)) {
+		$invoice = dxbs_record_raw('invoice', $row['invoice_id']);
+		$row['project_id'] = (int) ($invoice['project_id'] ?? $row['snapshot']['project_id'] ?? 0);
+		$row['title'] = $row['snapshot']['title'] ?? '';
+	}
 	$client = $wpdb->get_row($wpdb->prepare('SELECT name,company FROM ' . dxbs_table('clients') . ' WHERE id=%d', $row['client_id']), ARRAY_A);
 	$row['client_name'] = $row['snapshot']['client']['name'] ?? $client['name'] ?? '';
 	$row['category_name'] = $row['snapshot']['category']['name'] ?? $wpdb->get_var($wpdb->prepare('SELECT name FROM ' . dxbs_table('categories') . ' WHERE id=%d', $row['category_id']));
@@ -75,6 +81,8 @@ function dxbs_status_filter($type, $status, $alias = 'd') {
 	if ($status === 'void' || $status === 'cancelled') return "($alias.voided_at IS NOT NULL OR $alias.status IN ('void','cancelled'))";
 	if ($status === 'paid') return "$issued AND $balance=0 AND ($credit=0 OR $paid>=$alias.total_minor)";
 	if ($status === 'credited') return "$issued AND $balance=0 AND $credit>0 AND $paid<$alias.total_minor";
+	if ($status === 'issued') return $issued;
+	if ($status === 'outstanding') return "$issued AND $balance>0";
 	if ($status === 'partially_paid') return "$issued AND $balance>0 AND $paid>0";
 	if ($status === 'overdue') return $wpdb->prepare("$issued AND $balance>0 AND $alias.due_date<%s", dxbs_today());
 	if ($status === 'awaiting_payment' || $status === 'sent') return $wpdb->prepare("$issued AND $balance>0 AND $paid=0 AND $alias.due_date>=%s", dxbs_today());
@@ -92,10 +100,14 @@ function dxbs_financial_documents($type, $args = []) {
 	if ($cid)$where[] = $wpdb->prepare('d.client_id=%d', $cid);
 	if (!$manager && in_array($type, ['quote', 'invoice'], true))$where[] = 'd.issued_at IS NOT NULL';
 	if (!empty($args['category_id']))$where[] = $wpdb->prepare('d.category_id=%d', absint($args['category_id']));
+	if (!empty($args['issued_only']) && in_array($type, ['quote', 'invoice'], true)) $where[] = 'd.issued_at IS NOT NULL';
+	if (!empty($args['quote_id']) && $type === 'invoice') $where[] = $wpdb->prepare('d.quote_id=%d', absint($args['quote_id']));
 	if (!empty($args['status']) && $args['status'] !== 'all')$where[] = dxbs_status_filter($type, sanitize_key($args['status']));
 	if (!empty($args['search'])) {
 		$term = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';
-		$where[] = $wpdb->prepare('(d.number LIKE %s OR c.name LIKE %s)', $term, $term);
+		$where[] = in_array($type, ['quote', 'invoice'], true)
+			? $wpdb->prepare('(d.number LIKE %s OR c.name LIKE %s OR d.title LIKE %s)', $term, $term, $term)
+			: $wpdb->prepare('(d.number LIKE %s OR c.name LIKE %s)', $term, $term);
 	}
 	foreach (['from' => '>=', 'to' => '<='] as $key => $op) if (!empty($args[$key]) && dxbs_date($args[$key]))$where[] = $wpdb->prepare("DATE(d.created_at) $op %s", $args[$key]);
 	$orderby = ['date' => 'd.created_at', 'number' => 'd.number', 'total' => 'd.total_minor'][$args['orderby'] ?? 'date'] ?? 'd.created_at';
@@ -187,7 +199,7 @@ function dxbs_save_quote($data) {
 function dxbs_save_invoice($data) {
 	return dxbs_save_draft('invoice', $data);
 }
-function dxbs_save_draft($type, $data) {
+function dxbs_save_draft($type, $data, $source = []) {
 	global $wpdb;
 	if (!dxbs_is_manager()) return dxbs_require_manager();
 	if (!is_array($data)) return dxbs_error('draft', 'Invalid document data.');
@@ -196,22 +208,54 @@ function dxbs_save_draft($type, $data) {
 	if ($id && (!$old || $old['status'] !== 'draft' || $old['issued_at'])) return dxbs_error('immutable', 'Only draft documents can be edited.');
 	if ($old && $type === 'invoice' && !empty($old['quote_id'])) return dxbs_error('allocation_locked', 'Invoice allocations from an accepted quotation stay fixed. Review and issue them, or void the allocation and correct the underlying agreement.');
 	if ($old && absint($data['version'] ?? 0) !== (int)$old['version']) return dxbs_error('version', 'Refresh the document before editing this version.');
-	$client = dxbs_client(absint($data['client_id'] ?? 0));
+	$client_id = absint($data['client_id'] ?? 0);
+	$client = $client_id ? dxbs_client($client_id) : null;
+	$recipient = [];
+	if (!$client_id) {
+		foreach (['name','company','billing_address_1','billing_city','billing_postcode','billing_country'] as $field) {
+			$value = $data['standalone_recipient'][$field] ?? '';
+			$recipient[$field] = is_string($value) ? sanitize_text_field($value) : '';
+		}
+		$email = $data['standalone_recipient']['email'] ?? '';
+		if (!is_string($email) || ($email !== '' && !is_email($email))) return dxbs_error('email', 'Enter a valid recipient email address.');
+		$recipient['email'] = $email;
+	}
 	$category = null;
 	foreach (dxbs_categories() as $c) if ($c['id'] === absint($data['category_id'] ?? 0))$category = $c;
-	if (!$client || $client['status'] !== 'active' || !$category) return dxbs_error('parties', 'Choose an active client and service category.');
+	$allowed_statuses = $type === 'quote' ? ['active', 'prospect'] : ['active'];
+	if (($client_id && (!$client || !in_array($client['status'], $allowed_statuses, true))) || !$category) {
+		return dxbs_error('parties', $type === 'quote' ? 'Choose an active or prospective client and a service category.' : 'Choose an active client and a service category.');
+	}
 	$pid = absint($data['project_id'] ?? 0);
-	if ($pid && (get_post_type($pid) !== 'dxcp_project' || (int)get_post_meta($pid, '_dxcp_client_id', true) !== (int)$client['wp_user_id'])) return dxbs_error('project', 'The project must belong to the selected client account.');
+	if ($pid && !$client_id) return dxbs_error('project', 'Select a client before linking a project.');
+	if ($pid) {
+		$business_client = (int)get_post_meta($pid, '_dxbs_client_id', true);
+		$wp_client = (int)get_post_meta($pid, '_dxcp_client_id', true);
+		$matches = $business_client
+			? $business_client === (int)$client['id']
+			: $wp_client && $wp_client === (int)$client['wp_user_id'];
+		if (get_post_type($pid) !== 'dxcp_project' || !$matches) {
+			return dxbs_error('project', 'The project must belong to the selected client.');
+		}
+	}
 	$calc = dxbs_document_calculate($data, dxbs_settings());
 	if (is_wp_error($calc)) return $calc;
 	$title = sanitize_text_field($data['title'] ?? '');
 	$supply = dxbs_date($data['supply_date'] ?? '');
 	$date = dxbs_date($data[$type === 'quote' ? 'expires_at' : 'due_date'] ?? '');
 	if (!$title || strlen($title) > 191 || !$supply || !$date) return dxbs_error('dates', 'Add a title, valid supply date and ' . ($type === 'quote' ? 'expiry date.' : 'payment due date.'));
+	$previous_draft = $old ? (json_decode($old['draft_data'] ?? '{}', true) ?: []) : [];
+	$revision_source_id = $type === 'quote' ? (int)($previous_draft['revision_source_id'] ?? $source['revision_source_id'] ?? 0) : 0;
+	if ($revision_source_id && $old && (int)$old['client_id'] !== $client_id) {
+		return dxbs_error('revision_client', 'Keep the original client when revising a quotation. Duplicate it to use a different client.');
+	}
 	$draft = ['title' => $title, 'terms' => sanitize_textarea_field($data['terms'] ?? ''), 'notes' => sanitize_textarea_field($data['notes'] ?? ''), 'discount_type' => $data['discount_type'] ?? 'none', 'discount_value' => (string)($data['discount_value'] ?? '0'), 'deposit_type' => $data['deposit_type'] ?? 'none', 'deposit_value' => (string)($data['deposit_value'] ?? '0'), 'lines' => $calc['lines']];
+	if (!$client_id) $draft['standalone_recipient'] = $recipient;
+	if ($revision_source_id) $draft['revision_source_id'] = $revision_source_id;
 	if (strlen($draft['terms']) > 12000 || strlen($draft['notes']) > 12000) return dxbs_error('length', 'Terms and notes must each be shorter than 12,000 characters.');
-	$row = ['client_id' => $client['id'], 'category_id' => $category['id'], 'project_id' => $pid ? : null, 'title' => $title, 'draft_data' => wp_json_encode($draft), 'supply_date' => $supply, 'subtotal_minor' => $calc['subtotal_minor'], 'discount_minor' => $calc['discount_minor'], 'tax_minor' => $calc['tax_minor'], 'total_minor' => $calc['total_minor'], 'version' => $old ? (int)$old['version'] + 1 : 1, 'updated_at' => dxbs_now()];
+	$row = ['client_id' => $client_id, 'category_id' => $category['id'], 'project_id' => $pid ? : null, 'title' => $title, 'draft_data' => wp_json_encode($draft), 'supply_date' => $supply, 'subtotal_minor' => $calc['subtotal_minor'], 'discount_minor' => $calc['discount_minor'], 'tax_minor' => $calc['tax_minor'], 'total_minor' => $calc['total_minor'], 'version' => $old ? (int)$old['version'] + 1 : 1, 'updated_at' => dxbs_now()];
 	if ($type === 'quote') {
+		if (!$old && !empty($source['legacy_reference'])) $row['legacy_reference'] = sanitize_text_field($source['legacy_reference']);
 		$row['deposit_minor'] = $calc['deposit_minor'];
 		$row['expires_at'] = (new DateTimeImmutable($date . ' 23:59:59', new DateTimeZone('Europe/London')))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
 	}
@@ -238,7 +282,7 @@ function dxbs_save_draft($type, $data) {
 			return dxbs_error('save', 'The draft lines could not be saved.');
 		}
 	}
-	if (!dxbs_audit($old ? 'draft_updated' : 'draft_created', $type, $id, ['fields' => array_keys($row), 'version' => $row['version']])) {
+	if (!dxbs_audit($old ? 'draft_updated' : 'draft_created', $type, $id, ['fields' => array_keys($row), 'version' => $row['version'], 'revision_source_id' => $revision_source_id])) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('audit', 'The audit could not be recorded.');
 	}
@@ -260,23 +304,23 @@ function dxbs_next_number($type) {
 function dxbs_issue_requirements($client, $settings) {
 	if (empty($settings['legal_name']) || empty($settings['company_type']) || empty($settings['address_1']) || empty($settings['postcode']) || empty($settings['email'])) return dxbs_error('identity', 'Complete your legal business name, business type, address, postcode and contact email in Settings before issuing documents.');
 	if ($settings['company_type'] === 'limited_company' && !$settings['company_number']) return dxbs_error('identity', 'Add the registered company number before issuing limited-company documents.');
-	if (empty($client['billing_address_1']) || empty($client['billing_city']) || empty($client['billing_postcode']) || empty($client['billing_country'])) return dxbs_error('client_address', 'Complete the client billing address, city, postcode and country before issue.');
+	if (empty($client['name']) || empty($client['billing_address_1']) || empty($client['billing_city']) || empty($client['billing_postcode']) || empty($client['billing_country'])) return dxbs_error('client_address', 'Complete the client billing address, city, postcode and country before issue.');
 	return true;
 }
 function dxbs_snapshot($type, $row, $number, $draft_preview = false) {
-	$client = dxbs_client($row['client_id']);
+	$draft = json_decode($row['draft_data'], true) ?: [];
+	$client = $row['client_id'] ? dxbs_client($row['client_id']) : ($draft['standalone_recipient'] ?? []);
 	$settings = dxbs_settings();
 	if (!$draft_preview) {
 		$required = dxbs_issue_requirements($client, $settings);
 		if ((int)$row['tax_minor'] > 0 && !$settings['vat_registered']) return dxbs_error('vat_changed', 'This draft charges VAT but the business is no longer configured as VAT registered. Correct the draft before issue.');
 		if (is_wp_error($required)) return $required;
 	}
-	$draft = json_decode($row['draft_data'], true) ? : [];
 	$business = array_diff_key($settings, array_flip(['bank_account_holder', 'bank_name', 'bank_sort_code', 'bank_account_number', 'version']));
 	$client = array_diff_key($client ?? [], array_flip(['notes', 'version', 'category_ids', 'created_at', 'updated_at']));
 	$cat = null;
 	foreach (dxbs_categories(false) as $c) if ($c['id'] === (int)$row['category_id'])$cat = $c;
-	return ['type' => $type, 'number' => $number, 'title' => $row['title'], 'version' => (int)$row['version'], 'issue_date' => $draft_preview ? null : wp_date('Y-m-d', null, new DateTimeZone('Europe/London')), 'supply_date' => $row['supply_date'], 'due_date' => $row['due_date'] ?? null, 'expires_at' => $row['expires_at'] ?? null, 'business' => $business, 'client' => $client, 'category' => $cat, 'lines' => $draft['lines'] ?? [], 'terms' => $draft['terms'] ?? '', 'notes' => $draft['notes'] ?? '', 'subtotal_minor' => (int)$row['subtotal_minor'], 'discount_minor' => (int)$row['discount_minor'], 'tax_minor' => (int)$row['tax_minor'], 'total_minor' => (int)$row['total_minor'], 'deposit_minor' => (int)($row['deposit_minor'] ?? 0), 'project_id' => (int)($row['project_id'] ?? 0), 'quote_id' => (int)($row['quote_id'] ?? 0), 'currency' => 'GBP'];
+	return ['type' => $type, 'number' => $number, 'title' => $row['title'], 'version' => (int)$row['version'], 'issue_date' => $draft_preview ? null : wp_date('Y-m-d', null, new DateTimeZone('Europe/London')), 'supply_date' => $row['supply_date'], 'due_date' => $row['due_date'] ?? null, 'expires_at' => $row['expires_at'] ?? null, 'business' => $business, 'client' => $client, 'category' => $cat, 'lines' => $draft['lines'] ?? [], 'terms' => $draft['terms'] ?? '', 'notes' => $draft['notes'] ?? '', 'subtotal_minor' => (int)$row['subtotal_minor'], 'discount_minor' => (int)$row['discount_minor'], 'tax_minor' => (int)$row['tax_minor'], 'total_minor' => (int)$row['total_minor'], 'deposit_minor' => (int)($row['deposit_minor'] ?? 0), 'project_id' => (int)($row['project_id'] ?? 0), 'quote_id' => (int)($row['quote_id'] ?? 0), 'source_quote_number' => $draft['source_quote_number'] ?? '', 'currency' => 'GBP'];
 }
 function dxbs_issue_document($type, $id, $version, $confirm = false, $send = false) {
 	global $wpdb;
@@ -287,6 +331,20 @@ function dxbs_issue_document($type, $id, $version, $confirm = false, $send = fal
 	if (!$row || $row['status'] !== 'draft' || $row['issued_at'] || (int)$row['version'] !== (int)$version) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('immutable', 'Only the current draft version can be issued.');
+	}
+	$previous = null;
+	if ($type === 'quote') {
+		$draft = json_decode($row['draft_data'] ?? '{}', true) ?: [];
+		$source_id = (int)($draft['revision_source_id'] ?? 0);
+		if ($source_id) {
+			$previous = dxbs_record_raw('quote', $source_id, true);
+			if (!$previous || $previous['status'] !== 'sent' || (int)$previous['client_id'] !== (int)$row['client_id']) {
+				return dxbs_rollback('revision', 'The original quotation has changed or has already been accepted. Review both records before continuing.');
+			}
+		}
+	}
+	if ($type === 'quote' && $row['expires_at'] < dxbs_now()) {
+		return dxbs_rollback('expiry', 'Set a future quotation expiry date before issue.');
 	}
 	if ($type === 'invoice' && !empty($row['quote_id'])) {
 		$q = dxbs_record_raw('quote', $row['quote_id'], true);
@@ -306,6 +364,14 @@ function dxbs_issue_document($type, $id, $version, $confirm = false, $send = fal
 		$wpdb->query('ROLLBACK');
 		return $snapshot;
 	}
+	if ($previous) {
+		$snapshot['revises_quote_number'] = $previous['number'];
+		$snapshot['revises_quote_id'] = (int)$previous['id'];
+		$updated_source = $wpdb->update(dxbs_table('quotes'), ['status' => 'superseded', 'updated_at' => dxbs_now()], ['id' => $previous['id'], 'status' => 'sent']);
+		if ($updated_source !== 1 || !dxbs_audit('quote_superseded', 'quote', $previous['id'], ['version' => (int)$previous['version']])) {
+			return dxbs_rollback('revision', 'The revision could not be linked to the original quotation.');
+		}
+	}
 	$updated = ['number' => $number, 'snapshot' => wp_json_encode($snapshot), 'status' => $type === 'quote' ? 'sent' : 'awaiting_payment', 'issued_at' => dxbs_now(), 'issued_by' => get_current_user_id(), 'updated_at' => dxbs_now()];
 	if ($type === 'invoice')$updated['payment_reference'] = $number;
 	if (false === $wpdb->update(dxbs_table(dxbs_type_table($type)), $updated, ['id' => $id]) || !dxbs_audit('document_issued', $type, $id, ['version' => $version])) {
@@ -320,14 +386,29 @@ function dxbs_issue_document($type, $id, $version, $confirm = false, $send = fal
 	}
 	return is_wp_error($pdf) ? dxbs_error('pdf_after_issue', 'The document was issued and locked, but PDF archiving needs retry: ' . $pdf->get_error_message()) : (int)$id;
 }
-function dxbs_duplicate_quote($id) {
+function dxbs_duplicate_quote($id, $revision = false) {
 	if (!dxbs_is_manager()) return dxbs_require_manager();
-	$q = dxbs_document('quote', $id);
-	if (!$q) return dxbs_error('missing', 'Quotation not found.');
-	$d = $q['draft'];
-	$data = array_merge($d, ['client_id' => $q['client_id'], 'category_id' => $q['category_id'], 'project_id' => $q['project_id'], 'title' => $q['title'] . ' — copy', 'supply_date' => $q['supply_date'], 'expires_at' => substr($q['expires_at'], 0, 10)]);
-	$data['lines'] = array_map('dxbs_line_to_input', $d['lines'] ?? $q['lines']);
-	return dxbs_save_quote($data);
+	$quote = dxbs_document('quote', $id);
+	if (!$quote) return dxbs_error('missing', 'Quotation not found.');
+	if ($revision && !in_array($quote['status'], ['sent', 'expired'], true)) {
+		return dxbs_error('revision', 'Choose a quotation that is still awaiting a decision, or duplicate it to prepare a new quotation.');
+	}
+	$draft = $quote['draft'];
+	$suffix = $revision ? ' — revision' : ' — copy';
+	$expiry = $quote['expires_at'] ? (new DateTimeImmutable($quote['expires_at'], new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Europe/London'))->format('Y-m-d') : '';
+	if (!$expiry || $expiry < dxbs_today()) {
+		$expiry = wp_date('Y-m-d', time() + 30 * DAY_IN_SECONDS, new DateTimeZone('Europe/London'));
+	}
+	$data = array_merge($draft, [
+		'client_id' => $quote['client_id'],
+		'category_id' => $quote['category_id'],
+		'project_id' => $quote['project_id'],
+		'title' => mb_strcut($quote['title'], 0, 191 - strlen($suffix)) . $suffix,
+		'supply_date' => $quote['supply_date'],
+		'expires_at' => $expiry,
+		'lines' => array_map('dxbs_line_to_input', $draft['lines'] ?? $quote['lines']),
+	]);
+	return dxbs_save_draft('quote', $data, $revision ? ['revision_source_id' => $id] : []);
 }
 function dxbs_decimal_minor($n) {
 	return intdiv((int)$n, 100) . '.' . str_pad((string)((int)$n % 100), 2, '0', STR_PAD_LEFT);
@@ -336,22 +417,38 @@ function dxbs_line_to_input($l) {
 	return ['description' => $l['description'], 'quantity' => intdiv((int)$l['quantity_millis'], 1000) . '.' . str_pad((string)((int)$l['quantity_millis'] % 1000), 3, '0', STR_PAD_LEFT), 'unit_price' => dxbs_decimal_minor($l['unit_minor']), 'tax_basis_points' => $l['tax_basis_points']];
 }
 function dxbs_accept_quote($id, $version, $confirmation) {
+	return dxbs_quote_response($id, $version, $confirmation, 'accepted');
+}
+function dxbs_quote_response($id, $version, $confirmation, $response) {
 	global $wpdb;
-	if (!is_user_logged_in() || current_user_can('manage_options') || !$confirmation) return dxbs_error('accept', 'The assigned client must explicitly confirm quotation acceptance.');
+	if (!is_user_logged_in() || current_user_can('manage_options') || !$confirmation || !in_array($response, ['accepted', 'declined'], true)) {
+		return dxbs_error('response', 'The assigned client must explicitly confirm the quotation response.');
+	}
 	$wpdb->query('START TRANSACTION');
 	$q = dxbs_record_raw('quote', $id, true);
-	if (!$q || !dxbs_can_read_financial('quote', $q) || $q['status'] !== 'sent' || (int)$q['version'] !== (int)$version || $q['expires_at'] < dxbs_now()) {
-		$wpdb->query('ROLLBACK');
-		return dxbs_error('accept', 'This quotation is unavailable, expired or changed. Refresh and review the current document.');
+	if (!$q || !dxbs_can_read_financial('quote', $q) || (int)$q['version'] !== (int)$version) {
+		return dxbs_rollback('response', 'This quotation is unavailable or changed. Refresh and review the current document.');
 	}
-	$ok = $wpdb->update(dxbs_table('quotes'), ['status' => 'accepted', 'accepted_at' => dxbs_now(), 'accepted_by' => get_current_user_id(), 'accepted_version' => $version, 'updated_at' => dxbs_now()], ['id' => $id, 'status' => 'sent']);
+	if ($q['status'] === $response) {
+		$wpdb->query('COMMIT');
+		return true;
+	}
+	if ($q['status'] !== 'sent' || $q['expires_at'] < dxbs_now()) {
+		return dxbs_rollback('response', 'This quotation is expired or is no longer awaiting a response.');
+	}
+	$update = ['status' => $response, 'updated_at' => dxbs_now()];
+	if ($response === 'accepted') {
+		$update += ['accepted_at' => dxbs_now(), 'accepted_by' => get_current_user_id(), 'accepted_version' => $version];
+	}
+	$ok = $wpdb->update(dxbs_table('quotes'), $update, ['id' => $id, 'status' => 'sent']);
 	if (!$ok) {
 		$wpdb->query('ROLLBACK');
-		return dxbs_error('accept', 'Acceptance could not be recorded.');
+		return dxbs_error('response', 'The quotation response could not be recorded.');
 	}
-	if (!dxbs_fin_audit('quote_accepted', 'quote', $id, ['version' => $version])) return dxbs_rollback('audit', 'Acceptance could not be audited and was not applied.');
+	$event = 'quote_' . $response;
+	if (!dxbs_fin_audit($event, 'quote', $id, ['version' => $version])) return dxbs_rollback('audit', 'The quotation response could not be audited.');
 	$wpdb->query('COMMIT');
-	dxbs_queue_event('quote_accepted', 'quote', $id, 'accept-' . $id . '-' . $version);
+	dxbs_queue_event($event, 'quote', $id, ($response === 'accepted' ? 'accept-' : 'decline-') . $id . '-' . $version);
 	return true;
 }
 /** Audits for client events omit private values and cannot confer financial authority. */
@@ -379,13 +476,8 @@ function dxbs_import_quote($reference, $client_id, $category_id, $project_id = 0
 	$labels = [];
 	foreach ($state['estimate_breakdown'] ?? [] as $l)$labels[] = sanitize_text_field(($l['category'] ?? '') . ': ' . ($l['label'] ?? ''));
 	$price = (string)$source['total'];
-	$id = dxbs_save_quote(['client_id' => $client_id, 'category_id' => $category_id, 'project_id' => $project_id, 'title' => 'Calculator brief ' . $reference . ' — review before issue', 'supply_date' => dxbs_today(), 'expires_at' => wp_date('Y-m-d', time() + 30 * DAY_IN_SECONDS), 'notes' => 'Imported indicative estimate ' . $reference . '. Review the scope, pricing, payment terms and tax before issuing a final quotation.', 'lines' => [['description' => mb_substr(implode("\n", $labels) ? : 'Reviewed calculator brief ' . $reference, 0, 1900), 'quantity' => '1', 'unit_price' => $price, 'tax_basis_points' => '0']]]);
+	$id = dxbs_save_draft('quote', ['client_id' => $client_id, 'category_id' => $category_id, 'project_id' => $project_id, 'title' => 'Calculator brief ' . $reference . ' — review before issue', 'supply_date' => dxbs_today(), 'expires_at' => wp_date('Y-m-d', time() + 30 * DAY_IN_SECONDS), 'notes' => 'Imported indicative estimate ' . $reference . '. Review the scope, pricing, payment terms and tax before issuing a final quotation.', 'lines' => [['description' => mb_substr(implode("\n", $labels) ? : 'Reviewed calculator brief ' . $reference, 0, 1900), 'quantity' => '1', 'unit_price' => $price, 'tax_basis_points' => '0']]], ['legacy_reference' => $reference]);
 	if (is_wp_error($id)) return $id;
-	if (false === $wpdb->update(dxbs_table('quotes'), ['legacy_reference' => $reference], ['id' => $id])) {
-		$wpdb->delete(dxbs_table('quote_lines'), ['quote_id' => $id]);
-		$wpdb->delete(dxbs_table('quotes'), ['id' => $id]);
-		return dxbs_error('duplicate', 'This calculator reference could not be attached, possibly because it was imported elsewhere.');
-	}
 	dxbs_audit('calculator_imported', 'quote', $id, ['fields' => ['legacy_reference']]);
 	return $id;
 }
@@ -396,6 +488,10 @@ function dxbs_convert_quote($id, $version, $plan = 'full', $count = 1, $first_du
 	if (!$date || !in_array($plan, ['full', 'deposit_final', 'instalments'], true)) return dxbs_error('plan', 'Choose a payment plan and valid first due date.');
 	$wpdb->query('START TRANSACTION');
 	$q = dxbs_record_raw('quote', $id, true);
+	$client = $q ? dxbs_client($q['client_id']) : null;
+	if ($client && $client['status'] !== 'active') {
+		return dxbs_rollback('client_status', 'Mark the accepted quotation’s client active before creating invoices.');
+	}
 	if (!$q || $q['status'] !== 'accepted' || (int)$q['version'] !== (int)$version || !empty($q['converted_at'])) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('conversion', 'An accepted quotation can be converted once, using its current version.');
@@ -410,22 +506,25 @@ function dxbs_convert_quote($id, $version, $plan = 'full', $count = 1, $first_du
 		$amounts = [$dep, $total - $dep];
 	}
 	elseif ($plan === 'instalments') {
-		if ($count < 2 || $count > 12) {
+		if ($count < 2 || $count > 12 || $count > $total) {
 			$wpdb->query('ROLLBACK');
-			return dxbs_error('instalments', 'Choose 2 to 12 installments.');
+			return dxbs_error('instalments', 'Choose 2 to 12 instalments with at least one penny each.');
 		}
 		$amounts = dxbs_split_minor($total, (int)$count);
 	}
 	else $amounts = [$total];
 	$snapshot = json_decode($q['snapshot'], true);
-	$source = $snapshot['lines'];
+	$source = $snapshot['lines'] ?? [];
+	if (!$source || array_sum(array_column($source, 'total_minor')) !== $total) {
+		return dxbs_rollback('allocation', 'The issued quotation lines could not be reconciled with its total.');
+	}
 	$source_i = 0;
 	$source_remaining = [];
 	foreach ($source as $l)$source_remaining[] = ['net' => (int)$l['net_minor'] - (int)$l['discount_minor'], 'tax' => (int)$l['tax_minor'], 'description' => $l['description'], 'rate' => (int)$l['tax_basis_points']];
 	$ids = [];
 	foreach ($amounts as $part => $amount) {
-		$need = $amount;
-		$lines = [];
+		$need = $plan === 'full' ? 0 : $amount;
+		$lines = $plan === 'full' ? $source : [];
 		while ($need > 0 && isset($source_remaining[$source_i])) {
 			$l = &$source_remaining[$source_i];
 			$gross = $l['net'] + $l['tax'];
@@ -453,14 +552,14 @@ function dxbs_convert_quote($id, $version, $plan = 'full', $count = 1, $first_du
 		$month = $first->modify('first day of this month')->modify('+' . $part . ' months');
 		$due = $month->setDate((int)$month->format('Y'), (int)$month->format('m'), min((int)$first->format('d'), (int)$month->format('t')))->format('Y-m-d');
 		$draft = ['title' => ucfirst($kind) . ' — ' . $q['number'], 'terms' => $snapshot['terms'], 'notes' => $snapshot['notes'], 'lines' => $lines, 'source_quote_number' => $q['number']];
-		$row = ['client_id' => $q['client_id'], 'category_id' => $q['category_id'], 'project_id' => $q['project_id'], 'quote_id' => $id, 'kind' => $kind, 'title' => $draft['title'], 'draft_data' => wp_json_encode($draft), 'snapshot' => '{}', 'supply_date' => $q['supply_date'], 'due_date' => $due, 'subtotal_minor' => array_sum(array_column($lines, 'net_minor')), 'tax_minor' => array_sum(array_column($lines, 'tax_minor')), 'total_minor' => $amount, 'created_at' => dxbs_now(), 'updated_at' => dxbs_now()];
+		$row = ['client_id' => $q['client_id'], 'category_id' => $q['category_id'], 'project_id' => $q['project_id'], 'quote_id' => $id, 'kind' => $kind, 'title' => $draft['title'], 'draft_data' => wp_json_encode($draft), 'snapshot' => '{}', 'supply_date' => $q['supply_date'], 'due_date' => $due, 'subtotal_minor' => array_sum(array_column($lines, 'net_minor')), 'discount_minor' => array_sum(array_column($lines, 'discount_minor')), 'tax_minor' => array_sum(array_column($lines, 'tax_minor')), 'total_minor' => $amount, 'created_at' => dxbs_now(), 'updated_at' => dxbs_now()];
 		if (false === $wpdb->insert(dxbs_table('invoices'), $row)) {
 			$wpdb->query('ROLLBACK');
 			return dxbs_error('conversion', 'Invoice drafts could not be created.');
 		}
 		$invoice = (int)$wpdb->insert_id;
 		$ids[] = $invoice;
-		foreach ($lines as $i => $l) if (false === $wpdb->insert(dxbs_table('invoice_lines'), ['invoice_id' => $invoice, 'position' => $i, 'description' => $l['description'], 'quantity_millis' => 1000, 'unit_minor' => $l['unit_minor'], 'discount_minor' => 0, 'tax_basis_points' => $l['tax_basis_points'], 'total_minor' => $l['total_minor']])) {
+		foreach ($lines as $i => $l) if (false === $wpdb->insert(dxbs_table('invoice_lines'), ['invoice_id' => $invoice, 'position' => $i, 'description' => $l['description'], 'quantity_millis' => $l['quantity_millis'], 'unit_minor' => $l['unit_minor'], 'discount_minor' => $l['discount_minor'], 'tax_basis_points' => $l['tax_basis_points'], 'total_minor' => $l['total_minor']])) {
 			$wpdb->query('ROLLBACK');
 			return dxbs_error('conversion', 'Invoice allocation lines could not be saved.');
 		}
@@ -493,13 +592,14 @@ function dxbs_void_invoice($id, $reason, $confirm = false) {
 	$wpdb->query('START TRANSACTION');
 	$row = dxbs_record_raw('invoice', $id, true);
 	$b = dxbs_invoice_balance($id);
-	if (!$row || $row['voided_at'] || $b['paid_minor'] || $b['credited_minor']) {
+	if (!$row || !$row['issued_at'] || $row['voided_at'] || $b['paid_minor'] || $b['credited_minor']) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('void', 'An invoice with a verified payment or credit must be corrected through a credit note or payment reversal.');
 	}
-	if (false === $wpdb->update(dxbs_table('invoices'), ['status' => 'void', 'voided_at' => dxbs_now(), 'updated_at' => dxbs_now()], ['id' => $id]) || !dxbs_fin_audit('invoice_voided', 'invoice', $id, ['reason' => $reason])) return dxbs_rollback('void', 'The invoice cancellation could not be audited.');
+	if (false === $wpdb->update(dxbs_table('invoices'), ['status' => 'void', 'voided_at' => dxbs_now(), 'updated_at' => dxbs_now()], ['id' => $id]) || !dxbs_revoke_payment_links($id) || !dxbs_fin_audit('invoice_voided', 'invoice', $id, ['reason' => $reason])) {
+		return dxbs_rollback('void', 'The invoice cancellation could not be audited.');
+	}
 	$wpdb->query('COMMIT');
-	dxbs_revoke_payment_links($id);
 	return true;
 }
 function dxbs_credit_lines($lines, $offset, $amount) {
@@ -565,12 +665,20 @@ function dxbs_credit_invoice($id, $amount, $reason, $supply_date, $confirm = fal
 }
 function dxbs_payment_link($id, $rotate = false) {
 	global $wpdb;
-	$row = dxbs_record_raw('invoice', $id);
-	if (!dxbs_is_manager() || !$row || !$row['issued_at'] || $row['voided_at']) return '';
-	if ($rotate)dxbs_revoke_payment_links($id);
+	if (!dxbs_is_manager()) return '';
+	$wpdb->query('START TRANSACTION');
+	$row = dxbs_record_raw('invoice', $id, true);
+	if (!$row || !$row['issued_at'] || $row['voided_at'] || ($rotate && !dxbs_revoke_payment_links($id))) {
+		$wpdb->query('ROLLBACK');
+		return '';
+	}
 	$token = bin2hex(random_bytes(32));
-	$wpdb->insert(dxbs_table('access_tokens'), ['entity_type' => 'invoice', 'entity_id' => $id, 'token_hash' => hash('sha256', $token), 'created_by' => get_current_user_id(), 'created_at' => dxbs_now(), 'expires_at' => gmdate('Y-m-d H:i:s', time() + 90 * DAY_IN_SECONDS)]);
-	dxbs_fin_audit('payment_link_created', 'invoice', $id);
+	$created = $wpdb->insert(dxbs_table('access_tokens'), ['entity_type' => 'invoice', 'entity_id' => $id, 'token_hash' => hash('sha256', $token), 'created_by' => get_current_user_id(), 'created_at' => dxbs_now(), 'expires_at' => gmdate('Y-m-d H:i:s', time() + 90 * DAY_IN_SECONDS)]);
+	if (!$created || !dxbs_fin_audit('payment_link_created', 'invoice', $id)) {
+		$wpdb->query('ROLLBACK');
+		return '';
+	}
+	$wpdb->query('COMMIT');
 	return add_query_arg(['dxbs_transfer' => $id, 'access' => $token], home_url('/'));
 }
 function dxbs_revoke_payment_links($id) {
@@ -591,6 +699,9 @@ function dxbs_report_transfer($id, $token = '') {
 	if (!dxbs_transfer_authorized($id, $token)) return dxbs_error('forbidden', 'This payment link is unavailable or expired.');
 	$wpdb->query('START TRANSACTION');
 	$row = dxbs_record_raw('invoice', $id, true);
+	if (!$row || !$row['issued_at'] || $row['voided_at'] || !dxbs_transfer_authorized($id, $token)) {
+		return dxbs_rollback('forbidden', 'This payment link is unavailable or expired.');
+	}
 	$b = dxbs_invoice_balance($id);
 	if (!$b['balance_minor']) {
 		$wpdb->query('ROLLBACK');
@@ -620,14 +731,20 @@ function dxbs_prepare_payment($data) {
 	$minor = dxbs_minor_units($data['amount'] ?? '');
 	$date = dxbs_date($data['bank_date'] ?? '');
 	$bank_ref = sanitize_text_field($data['bank_reference'] ?? '');
+	$notes = sanitize_textarea_field($data['notes'] ?? '');
+	if (strlen($notes) > 4000) return dxbs_error('notes', 'Use up to 4,000 characters for the internal payment note.');
 	if (!$row || !$row['issued_at'] || $row['voided_at'] || is_wp_error($minor) || $minor < 1 || !$date || $date > dxbs_today() || strlen($bank_ref) > 191) return dxbs_error('payment', 'Choose an issued invoice, a positive amount and the actual bank payment date (not in the future).');
 	$b = dxbs_invoice_balance($id);
-	if (!empty($data['report_id']) && !$wpdb->get_var($wpdb->prepare('SELECT id FROM ' . dxbs_table('payments') . " WHERE id=%d AND invoice_id=%d AND status='reported'", absint($data['report_id']), $id))) return dxbs_error('report', 'Choose an open transfer report for this invoice.');
+	$report_id = absint($data['report_id'] ?? 0);
+	if ($report_id && !$wpdb->get_var($wpdb->prepare('SELECT id FROM ' . dxbs_table('payments') . " WHERE id=%d AND invoice_id=%d AND status='reported'", $report_id, $id))) return dxbs_error('report', 'Choose an open transfer report for this invoice.');
+	if (!$report_id) {
+		$report_id = (int)$wpdb->get_var($wpdb->prepare('SELECT id FROM ' . dxbs_table('payments') . " WHERE invoice_id=%d AND status='reported' ORDER BY id LIMIT 1", $id));
+	}
 	if ($minor > $b['balance_minor']) return dxbs_error('overpayment', 'The received amount exceeds the invoice outstanding balance.');
 	$duplicate = (int)$wpdb->get_var($wpdb->prepare('SELECT id FROM ' . dxbs_table('payments') . " WHERE invoice_id=%d AND amount_minor=%d AND bank_date=%s AND bank_reference=%s AND status='verified' AND reversed_at IS NULL LIMIT 1", $id, $minor, $date, $bank_ref));
 	if ($duplicate && empty($data['allow_duplicate'])) return dxbs_error('duplicate_bank_entry', 'A matching bank entry is already recorded. Only acknowledge a separate transfer if you have checked that these are genuinely different transactions.');
 	$token = bin2hex(random_bytes(32));
-	$review = ['duplicate_acknowledged' => (bool)$duplicate, 'token' => $token, 'invoice_id' => $id, 'invoice_number' => $row['number'], 'invoice_version' => (int)$row['version'], 'amount_minor' => $minor, 'bank_date' => $date, 'bank_reference' => $bank_ref, 'receipt_delivery' => ($data['receipt_delivery'] ?? 'hold') === 'send' ? 'send' : 'hold', 'balance_minor' => $b['balance_minor'], 'report_id' => absint($data['report_id'] ?? 0)];
+	$review = ['duplicate_acknowledged' => (bool)$duplicate, 'token' => $token, 'invoice_id' => $id, 'invoice_number' => $row['number'], 'client_name' => (json_decode($row['snapshot'], true)['client']['name'] ?? ''), 'invoice_version' => (int)$row['version'], 'amount_minor' => $minor, 'bank_date' => $date, 'bank_reference' => $bank_ref, 'receipt_delivery' => ($data['receipt_delivery'] ?? 'hold') === 'send' ? 'send' : 'hold', 'balance_minor' => $b['balance_minor'], 'report_id' => $report_id, 'notes' => $notes];
 	$stored = $review;
 	unset ($stored['token']);
 	$ok = $wpdb->insert(dxbs_table('payment_intents'), ['token_hash' => hash('sha256', $token), 'actor_id' => get_current_user_id(), 'invoice_id' => $id, 'payload' => wp_json_encode($stored), 'created_at' => dxbs_now(), 'expires_at' => gmdate('Y-m-d H:i:s', time() + 15 * MINUTE_IN_SECONDS)]);
@@ -647,7 +764,7 @@ function dxbs_verify_payment($token, $verified_bank = false) {
 	$wpdb->query('START TRANSACTION');
 	$it = dxbs_table('payment_intents');
 	$intent = $wpdb->get_row($wpdb->prepare("SELECT * FROM $it WHERE token_hash=%s FOR UPDATE", hash('sha256', $token)), ARRAY_A);
-	if (!$intent || (int)$intent['actor_id'] !== get_current_user_id() || $intent['expires_at'] < dxbs_now()) {
+	if (!$intent || (int)$intent['actor_id'] !== get_current_user_id()) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('verify', 'The payment review expired. Prepare a fresh review.');
 	}
@@ -655,6 +772,7 @@ function dxbs_verify_payment($token, $verified_bank = false) {
 		$wpdb->query('COMMIT');
 		return (int)$intent['payment_id'];
 	}
+	if ($intent['expires_at'] < dxbs_now()) return dxbs_rollback('verify', 'The payment review expired. Prepare a fresh review.');
 	$r = json_decode($intent['payload'], true);
 	$invoice = dxbs_record_raw('invoice', $intent['invoice_id'], true);
 	$b = dxbs_invoice_balance($invoice['id'] ?? 0);
@@ -662,7 +780,16 @@ function dxbs_verify_payment($token, $verified_bank = false) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('stale', 'The invoice balance changed. Prepare and review the payment again.');
 	}
-	$payment = ['invoice_id' => $invoice['id'], 'client_id' => $invoice['client_id'], 'category_id' => $invoice['category_id'], 'amount_minor' => $r['amount_minor'], 'currency' => 'GBP', 'status' => 'verified', 'bank_date' => $r['bank_date'], 'bank_reference' => $r['bank_reference'], 'idempotency_key' => hash('sha256', 'verified-' . $token), 'verified_by' => get_current_user_id(), 'verified_at' => dxbs_now(), 'verification_note' => 'Account holder explicitly confirmed funds checked in bank.', 'report_id' => $r['report_id'] ? : null, 'created_at' => dxbs_now()];
+	$verification_note = 'Account holder explicitly confirmed funds checked in bank.';
+	if (!empty($r['notes'])) $verification_note .= "\n" . $r['notes'];
+	if (empty($r['report_id'])) {
+		$r['report_id'] = (int)$wpdb->get_var($wpdb->prepare('SELECT id FROM ' . dxbs_table('payments') . " WHERE invoice_id=%d AND status='reported' ORDER BY id LIMIT 1", $invoice['id']));
+	}
+	if ($r['report_id']) {
+		$reviewed = $wpdb->update(dxbs_table('payments'), ['status' => 'reviewed'], ['id' => $r['report_id'], 'invoice_id' => $invoice['id'], 'status' => 'reported']);
+		if ($reviewed !== 1) return dxbs_rollback('stale_report', 'This transfer report has already been reviewed. Prepare a fresh review.');
+	}
+	$payment = ['invoice_id' => $invoice['id'], 'client_id' => $invoice['client_id'], 'category_id' => $invoice['category_id'], 'amount_minor' => $r['amount_minor'], 'currency' => 'GBP', 'status' => 'verified', 'bank_date' => $r['bank_date'], 'bank_reference' => $r['bank_reference'], 'idempotency_key' => hash('sha256', 'verified-' . $token), 'verified_by' => get_current_user_id(), 'verified_at' => dxbs_now(), 'verification_note' => $verification_note, 'report_id' => $r['report_id'] ? : null, 'created_at' => dxbs_now()];
 	if (false === $wpdb->insert(dxbs_table('payments'), $payment)) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('duplicate', 'This verified payment could not be recorded, or the submission was already used.');
@@ -671,13 +798,13 @@ function dxbs_verify_payment($token, $verified_bank = false) {
 	if (false === $wpdb->update($it, ['status' => 'complete', 'payment_id' => $pid], ['id' => $intent['id']])) return dxbs_rollback('verify', 'The verification review could not be committed.');
 	$new_b = dxbs_invoice_balance($invoice['id']);
 	if (false === $wpdb->update(dxbs_table('invoices'), ['status' => $new_b['balance_minor'] ? 'partially_paid' : 'paid', 'version' => (int)$invoice['version'] + 1, 'updated_at' => dxbs_now()], ['id' => $invoice['id']])) return dxbs_rollback('verify', 'The invoice balance state could not be committed.');
-	if ($r['report_id'] && false === $wpdb->update(dxbs_table('payments'), ['status' => 'reviewed'], ['id' => $r['report_id'], 'invoice_id' => $invoice['id'], 'status' => 'reported'])) return dxbs_rollback('verify', 'The linked report could not be updated.');
 	if (!dxbs_fin_audit('bank_payment_verified', 'payment', $pid, ['invoice_id' => (int)$invoice['id'], 'amount_minor' => $r['amount_minor']])) {
 		$wpdb->query('ROLLBACK');
 		return dxbs_error('audit', 'Payment verification could not be audited.');
 	}
 	$wpdb->query('COMMIT');
-	delete_transient('dxbs_payment_review_' . get_current_user_id());
+	$current_review = dxbs_payment_review();
+	if (($current_review['token'] ?? '') === $token) delete_transient('dxbs_payment_review_' . get_current_user_id());
 	$receipt = dxbs_create_receipt($pid, $r['receipt_delivery']);
 	if (is_wp_error($receipt))set_transient('dxbs_payment_warning_' . get_current_user_id(), 'Payment verified and retained; receipt requires retry: ' . $receipt->get_error_message(), 10 * MINUTE_IN_SECONDS);
 	dxbs_queue_event('payment_verified', 'invoice', $invoice['id'], 'verify-' . $pid);
@@ -688,11 +815,26 @@ function dxbs_payment_records($args = []) {
 	if (!dxbs_is_manager()) return [];
 	$where = ['1=1'];
 	foreach (['invoice_id', 'client_id', 'category_id'] as $k) if (!empty($args[$k]))$where[] = $wpdb->prepare("p.$k=%d", absint($args[$k]));
-	if (!empty($args['status']))$where[] = $wpdb->prepare('p.status=%s', sanitize_key($args['status']));
+	if (($args['status'] ?? '') === 'reversed') {
+		$where[] = 'p.reversed_at IS NOT NULL';
+	} elseif (!empty($args['status']) && $args['status'] !== 'all') {
+		$where[] = $wpdb->prepare('p.status=%s AND p.reversed_at IS NULL', sanitize_key($args['status']));
+	}
+	if (!empty($args['search'])) {
+		$search = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';
+		$where[] = $wpdb->prepare('(i.number LIKE %s OR c.name LIKE %s OR p.bank_reference LIKE %s)', $search, $search, $search);
+	}
+	foreach (['from' => '>=', 'to' => '<='] as $key => $operator) {
+		if (!empty($args[$key]) && dxbs_date($args[$key])) {
+			$where[] = $wpdb->prepare("COALESCE(p.bank_date, DATE(p.created_at)) $operator %s", $args[$key]);
+		}
+	}
+	$sort = ['number' => 'i.number', 'total' => 'p.amount_minor'][$args['orderby'] ?? 'date'] ?? 'COALESCE(p.bank_date, DATE(p.created_at))';
 	$t = dxbs_table('payments');
 	$invoices = dxbs_table('invoices');
 	$clients = dxbs_table('clients');
-	$rows = $wpdb->get_results($wpdb->prepare("SELECT p.*,i.number AS invoice_number,c.name AS client_name FROM $t p LEFT JOIN $invoices i ON i.id=p.invoice_id LEFT JOIN $clients c ON c.id=p.client_id WHERE " . implode(' AND ', $where) . ' ORDER BY p.created_at DESC,p.id DESC LIMIT %d', min(200, max(1, (int)($args['limit'] ?? 100)))), ARRAY_A);
+	$receipts = dxbs_table('receipts');
+	$rows = $wpdb->get_results($wpdb->prepare("SELECT p.*,i.number AS invoice_number,c.name AS client_name,r.id AS receipt_id FROM $t p LEFT JOIN $invoices i ON i.id=p.invoice_id LEFT JOIN $clients c ON c.id=p.client_id LEFT JOIN $receipts r ON r.payment_id=p.id WHERE " . implode(' AND ', $where) . " ORDER BY $sort DESC,p.id DESC LIMIT %d", min(200, max(1, (int)($args['limit'] ?? 100)))), ARRAY_A);
 	foreach ($rows as &$r) foreach (['id', 'invoice_id', 'client_id', 'category_id', 'amount_minor', 'verified_by'] as $k)$r[$k] = (int)$r[$k];
 	return $rows;
 }
@@ -708,17 +850,23 @@ function dxbs_create_receipt($payment_id, $delivery = 'hold') {
 	$existing = $wpdb->get_var($wpdb->prepare('SELECT id FROM ' . dxbs_table('receipts') . ' WHERE payment_id=%d', $payment_id));
 	if ($existing) {
 		$wpdb->query('COMMIT');
-		if ($delivery === 'send')dxbs_send_document('receipt', (int)$existing);
-		return (int)$existing;
+		$result = $delivery === 'send' ? dxbs_send_document('receipt', (int)$existing) : dxbs_generate_pdf('receipt', (int)$existing);
+		return is_wp_error($result) ? $result : (int)$existing;
 	}
 	$invoice = dxbs_record_raw('invoice', $p['invoice_id']);
-	$snapshot = json_decode($invoice['snapshot'], true);
+	$snapshot = json_decode($invoice['snapshot'] ?? '{}', true);
+	if (!$snapshot) return dxbs_rollback('snapshot', 'The invoice snapshot for this verified payment is unavailable.');
+	$intent_payload = $wpdb->get_var($wpdb->prepare('SELECT payload FROM ' . dxbs_table('payment_intents') . " WHERE invoice_id=%d AND payment_id=%d AND status='complete' LIMIT 1", $invoice['id'], $payment_id));
+	$verification = json_decode($intent_payload ?: '{}', true);
+	$balance_after_payment = isset($verification['balance_minor'])
+		? max(0, (int)$verification['balance_minor'] - (int)$p['amount_minor'])
+		: dxbs_invoice_balance($invoice['id'])['balance_minor'];
 	$number = dxbs_next_number('receipt');
 	if (is_wp_error($number)) {
 		$wpdb->query('ROLLBACK');
 		return $number;
 	}
-	$snapshot = array_merge($snapshot, ['type' => 'receipt', 'number' => $number, 'invoice_number' => $invoice['number'], 'invoice_id' => (int)$invoice['id'], 'payment_id' => (int)$payment_id, 'bank_date' => $p['bank_date'], 'verified_at' => $p['verified_at'], 'issue_date' => dxbs_today(), 'amount_minor' => (int)$p['amount_minor'], 'total_minor' => (int)$p['amount_minor'], 'invoice_balance_minor' => dxbs_invoice_balance($invoice['id'])['balance_minor'], 'notes' => 'Receipt for verified bank-transfer funds.', 'lines' => [['description' => 'Verified payment against ' . $invoice['number'], 'quantity_millis' => 1000, 'unit_minor' => (int)$p['amount_minor'], 'total_minor' => (int)$p['amount_minor']]]]);
+	$snapshot = array_merge($snapshot, ['type' => 'receipt', 'number' => $number, 'invoice_number' => $invoice['number'], 'invoice_id' => (int)$invoice['id'], 'payment_id' => (int)$payment_id, 'bank_date' => $p['bank_date'], 'verified_at' => $p['verified_at'], 'issue_date' => dxbs_today(), 'amount_minor' => (int)$p['amount_minor'], 'total_minor' => (int)$p['amount_minor'], 'subtotal_minor' => (int)$p['amount_minor'], 'tax_minor' => 0, 'discount_minor' => 0, 'payment_method' => 'Bank transfer', 'invoice_balance_minor' => $balance_after_payment, 'notes' => 'Receipt for verified bank-transfer funds.', 'lines' => [['description' => 'Verified payment against ' . $invoice['number'], 'quantity_millis' => 1000, 'unit_minor' => (int)$p['amount_minor'], 'total_minor' => (int)$p['amount_minor']]]]);
 	$ok = $wpdb->insert(dxbs_table('receipts'), ['payment_id' => $payment_id, 'invoice_id' => $invoice['id'], 'client_id' => $p['client_id'], 'category_id' => $p['category_id'], 'number' => $number, 'amount_minor' => $p['amount_minor'], 'snapshot' => wp_json_encode($snapshot), 'created_by' => get_current_user_id(), 'created_at' => dxbs_now()]);
 	if (!$ok) {
 		$wpdb->query('ROLLBACK');
@@ -770,10 +918,10 @@ function dxbs_reports($filters = []) {
 	$iw = ["i.issued_at IS NOT NULL", "i.voided_at IS NULL", "i.status NOT IN ('draft','void','cancelled')", "i.currency='GBP'"];
 	$qw = ['q.issued_at IS NOT NULL'];
 	foreach (['client_id', 'category_id'] as $key) if (!empty($filters[$key])) {
-		foreach (['where' => 'p', 'iw' => 'i', 'qw' => 'q'] as $var => $alias)$ {
-			$var
-		}
-		[] = $wpdb->prepare("$alias.$key=%d", absint($filters[$key]));
+		$value = absint($filters[$key]);
+		$where[] = $wpdb->prepare("p.$key=%d", $value);
+		$iw[] = $wpdb->prepare("i.$key=%d", $value);
+		$qw[] = $wpdb->prepare("q.$key=%d", $value);
 	}
 	foreach (['from' => '>=', 'to' => '<='] as $key => $op) if (!empty($filters[$key]) && dxbs_date($filters[$key])) {
 		$where[] = $wpdb->prepare("p.bank_date $op %s", $filters[$key]);
@@ -783,26 +931,34 @@ function dxbs_reports($filters = []) {
 	$ps = implode(' AND ', $where);
 	$is = implode(' AND ', $iw);
 	$qs = implode(' AND ', $qw);
-	$out = ['revenue_received_minor' => 0, 'outstanding_minor' => 0, 'overdue_minor' => 0, 'quotes_issued' => 0, 'quotes_accepted' => 0, 'acceptance_rate' => 0, 'monthly' => [], 'categories' => [], 'payments' => [], 'invoices' => [], 'unpaid_final_minor' => 0, 'deposit_received_minor' => 0, 'pending_transfer_count' => 0, 'overdue_invoice_count' => 0];
+	$out = ['invoice_status_counts' => [], 'pending_quotation_count' => 0, 'revenue_received_minor' => 0, 'outstanding_minor' => 0, 'overdue_minor' => 0, 'quotes_issued' => 0, 'quotes_accepted' => 0, 'acceptance_rate' => 0, 'monthly' => [], 'categories' => [], 'payments' => [], 'invoices' => [], 'unpaid_final_minor' => 0, 'deposit_received_minor' => 0, 'pending_transfer_count' => 0, 'overdue_invoice_count' => 0];
 	$out['revenue_received_minor'] = (int)$wpdb->get_var("SELECT COALESCE(SUM(p.amount_minor),0) FROM $p p INNER JOIN $i i ON i.id=p.invoice_id WHERE $ps");
 	$out['deposit_received_minor'] = (int)$wpdb->get_var("SELECT COALESCE(SUM(p.amount_minor),0) FROM $p p INNER JOIN $i i ON i.id=p.invoice_id WHERE $ps AND i.kind='deposit'");
 	$out['monthly'] = $wpdb->get_results("SELECT DATE_FORMAT(p.bank_date,'%Y-%m') AS month,SUM(p.amount_minor) AS received_minor FROM $p p INNER JOIN $i i ON i.id=p.invoice_id WHERE $ps GROUP BY month ORDER BY month", ARRAY_A);
 	$out['categories'] = $wpdb->get_results("SELECT p.category_id,COALESCE(c.name,'Unassigned category') AS name,SUM(p.amount_minor) AS received_minor FROM $p p INNER JOIN $i i ON i.id=p.invoice_id LEFT JOIN $c c ON c.id=p.category_id WHERE $ps GROUP BY p.category_id,c.name ORDER BY received_minor DESC", ARRAY_A);
-	foreach (['monthly', 'categories'] as $key) foreach ($out[$key] as &$r)$r['received_minor'] = (int)$r['received_minor'];
+	$out['clients'] = $wpdb->get_results("SELECT p.client_id,COALESCE(cl.name,'Unknown client') AS name,SUM(p.amount_minor) AS received_minor FROM $p p INNER JOIN $i i ON i.id=p.invoice_id LEFT JOIN $cl cl ON cl.id=p.client_id WHERE $ps GROUP BY p.client_id,cl.name ORDER BY received_minor DESC,p.client_id", ARRAY_A);
+	foreach (['monthly', 'categories', 'clients'] as $key) foreach ($out[$key] as &$r)$r['received_minor'] = (int)$r['received_minor'];
 	unset ($r);
 	$out['payments'] = $wpdb->get_results("SELECT p.*,i.number AS invoice_number,cl.name AS client_name,c.name AS category_name FROM $p p INNER JOIN $i i ON i.id=p.invoice_id LEFT JOIN $cl cl ON cl.id=p.client_id LEFT JOIN $c c ON c.id=p.category_id WHERE $ps ORDER BY p.bank_date DESC,p.id DESC LIMIT 200", ARRAY_A);
-	$balances = $wpdb->get_results("SELECT i.id,i.number,i.title,i.kind,i.client_id,i.category_id,i.due_date,i.total_minor,cl.name AS client_name,c.name AS category_name,GREATEST(0,CAST(i.total_minor AS SIGNED)-COALESCE(pp.paid,0)-COALESCE(cc.credited,0)) AS balance_minor FROM $i i LEFT JOIN (SELECT invoice_id,SUM(amount_minor) AS paid FROM $p WHERE status='verified' AND verified_at IS NOT NULL AND verified_by>0 AND reversed_at IS NULL AND currency='GBP' GROUP BY invoice_id) pp ON pp.invoice_id=i.id LEFT JOIN (SELECT invoice_id,SUM(total_minor) AS credited FROM $cn WHERE status='issued' GROUP BY invoice_id) cc ON cc.invoice_id=i.id LEFT JOIN $cl cl ON cl.id=i.client_id LEFT JOIN $c c ON c.id=i.category_id WHERE $is ORDER BY i.due_date,i.id", ARRAY_A);
+	$balances = $wpdb->get_results("SELECT i.id,i.number,i.title,i.kind,i.client_id,i.category_id,i.due_date,i.total_minor,i.issued_at,i.voided_at,i.status,COALESCE(pp.paid,0) AS paid_minor,COALESCE(cc.credited,0) AS credited_minor,cl.name AS client_name,c.name AS category_name,GREATEST(0,CAST(i.total_minor AS SIGNED)-COALESCE(pp.paid,0)-COALESCE(cc.credited,0)) AS balance_minor FROM $i i LEFT JOIN (SELECT invoice_id,SUM(amount_minor) AS paid FROM $p WHERE status='verified' AND verified_at IS NOT NULL AND verified_by>0 AND reversed_at IS NULL AND currency='GBP' GROUP BY invoice_id) pp ON pp.invoice_id=i.id LEFT JOIN (SELECT invoice_id,SUM(total_minor) AS credited FROM $cn WHERE status='issued' GROUP BY invoice_id) cc ON cc.invoice_id=i.id LEFT JOIN $cl cl ON cl.id=i.client_id LEFT JOIN $c c ON c.id=i.category_id WHERE $is ORDER BY i.due_date,i.id", ARRAY_A);
 	foreach ($balances as $r) {
 		$bal = (int)$r['balance_minor'];
+		$status = dxbs_invoice_status($r, ['balance_minor' => $bal, 'paid_minor' => (int)$r['paid_minor'], 'credited_minor' => (int)$r['credited_minor']]);
+		$out['invoice_status_counts'][$status] = ($out['invoice_status_counts'][$status] ?? 0) + 1;
 		$out['outstanding_minor'] += $bal;
-		if ($r['due_date'] < dxbs_today())$out['overdue_minor'] += $bal;
+		if ($bal > 0 && $r['due_date'] && $r['due_date'] < dxbs_today()) {
+			$out['overdue_minor'] += $bal;
+			++$out['overdue_invoice_count'];
+		}
 		if ($r['kind'] === 'final')$out['unpaid_final_minor'] += $bal;
 	}
 	$out['invoices'] = array_slice($balances, 0, 200);
-	$out['pending_transfer_count'] = (int)$wpdb->get_var('SELECT COUNT(*) FROM ' . dxbs_table('payments') . " WHERE status='reported'");
-	foreach ($balances as $balance) if ((int)$balance['balance_minor'] > 0 && $balance['due_date'] < dxbs_today())++$out['overdue_invoice_count'];
+	$out['pending_transfer_count'] = (int)$wpdb->get_var("SELECT COUNT(*) FROM $p p INNER JOIN $i i ON i.id=p.invoice_id WHERE $is AND p.status='reported'");
+	$out['pending_quotation_count'] = (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $q q WHERE $qs AND q.status='sent' AND q.expires_at>=%s", dxbs_now()));
 	$out['quotes_issued'] = (int)$wpdb->get_var("SELECT COUNT(*) FROM $q q WHERE $qs");
 	$out['quotes_accepted'] = (int)$wpdb->get_var("SELECT COUNT(*) FROM $q q WHERE $qs AND q.accepted_at IS NOT NULL");
+	$out['quotes_converted'] = (int)$wpdb->get_var("SELECT COUNT(*) FROM $q q WHERE $qs AND q.converted_at IS NOT NULL");
+	$out['conversion_rate'] = $out['quotes_accepted'] ? round(100 * $out['quotes_converted'] / $out['quotes_accepted'], 1) : 0;
 	$out['acceptance_rate'] = $out['quotes_issued'] ? round(100 * $out['quotes_accepted'] / $out['quotes_issued'], 1) : 0;
 	return $out;
 }

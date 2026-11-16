@@ -46,6 +46,10 @@ function dxbs_client( $id ) {
 	$table = dxbs_table( 'clients' );
 	return dxbs_client_row( $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d", absint( $id ) ), ARRAY_A ) );
 }
+function dxbs_client_statuses() {
+    return array( 'prospect' => 'Prospect', 'active' => 'Active', 'inactive' => 'Inactive', 'archived' => 'Archived' );
+}
+
 function dxbs_clients( $args = array() ) {
 	global $wpdb;
 	if ( ! dxbs_is_manager() ) {
@@ -55,7 +59,7 @@ function dxbs_clients( $args = array() ) {
 	$table = dxbs_table( 'clients' );
 	$links = dxbs_table( 'client_categories' );
 	$where = array( '1=1' );
-	if ( in_array( $args['status'], array( 'active', 'archived' ), true ) ) {
+	if ( isset( dxbs_client_statuses()[ $args['status'] ] ) ) {
 		$where[] = $wpdb->prepare( 'c.status = %s', $args['status'] );
 	} elseif ( 'all' !== $args['status'] ) {
 		$where[] = "c.status = 'active'";
@@ -124,7 +128,11 @@ function dxbs_save_client( $input ) {
 	if ( strlen( $data['notes'] ) > 20000 ) {
 		return dxbs_error( 'notes_length', 'Internal notes must be shorter than 20,000 characters.' );
 	}
-	$data['status'] = in_array( $input['status'] ?? 'active', array( 'active', 'archived' ), true ) ? $input['status'] ?? 'active' : 'active';
+	$status = $input['status'] ?? ( $old['status'] ?? 'active' );
+    if ( ! isset( dxbs_client_statuses()[ $status ] ) ) {
+        return dxbs_error( 'client_status', 'Choose a valid client status.' );
+    }
+    $data['status'] = $status;
 	$data['wp_user_id'] = absint( $input['wp_user_id'] ?? 0 ) ?: null;
 	if ( $data['wp_user_id'] && ! get_userdata( $data['wp_user_id'] ) ) {
 		return dxbs_error( 'invalid_account', 'Choose an existing WordPress account or leave the account blank.' );

@@ -9,7 +9,8 @@
 		<div class="progress-bar">
 			<span class="progress-fill"></span>
 		</div>
-		<pre class="progress-label headline"></pre>
+		<p class="progress-label headline" aria-live="polite"></p>
+		<div class="calculator-session"><select aria-label="Revisit a completed step" data-completed-steps hidden></select><span role="status" data-session-status></span><button type="button" data-restart-calculator>Start again</button></div>
 	</div>
 
 		<div class="steps-container">
@@ -33,7 +34,14 @@
 <div class="calculator-intro-fields"><button type="button" class="personalisation-toggle" aria-expanded="false" aria-controls="personalisation-fields">Personalise your estimate (optional)</button><div id="personalisation-fields" hidden><h3 class="calculator-intro-fields__title">Make this estimate yours.</h3><p>Add your name and company to personalise your estimate. It's completely optional, and you can always add these details later.</p><div class="calculator-intro-fields__grid"><div><label for="calculator-client-name">Your name (optional)</label><input id="calculator-client-name" name="client_name" type="text" placeholder="e.g. D'André"></div><div><label for="calculator-client-company">Company / organisation (optional)</label><input id="calculator-client-company" name="client_company" type="text" placeholder="e.g. DXNDRE Studio"></div></div></div></div>
 </div>
 
-<div class="calculator-step" data-step="photography"><p class="dx-eyebrow">Photography / A tailored brief</p><h2 class="step-title">Let’s frame your story.</h2><p class="step-intro"><strong class="dx-photo-price">£40</strong> A flat rate for photography. Photos returned within 48 hours as standard, captured with a DSLR and phone camera. Video is captured on a phone. Original, unedited files only; no retouching or editing is included. We’ll confirm the brief and location before booking.</p><label class="photo-express-option"><input type="checkbox" data-photo-express><span class="custom-checkbox" aria-hidden="true"></span>24-hour delivery — add £10</label><p class="dx-photo-deposit">£10 deposit only after our call and your acceptance of the final quotation. Pay the remaining £30 after your shoot.</p><a class="btn" data-photo-book href="/start-a-project/?enquiry_service=photography">Plan your shoot ↗</a><a class="dx-cta" href="/service/photography/">Explore photography services ↗</a></div><div class="calculator-step" data-step="fitness">
+<div class="calculator-step" data-step="photo_type">
+<h2 class="step-title">What sort of photography are you looking for?</h2>
+<div class="options-group">
+<?php foreach (['Action shots','Portraits','Parties','Brand launches','Other'] as $photo_type) : ?>
+<label><input type="radio" name="photo_type" value="<?php echo esc_attr($photo_type); ?>"><span class="custom-radio"></span><?php echo esc_html($photo_type); ?></label>
+<?php endforeach; ?>
+</div></div>
+<div class="calculator-step" data-step="photography"><p class="dx-eyebrow">Photography / A tailored brief</p><h2 class="step-title">Let’s frame your story.</h2><p class="step-intro"><strong class="dx-photo-price">£40</strong> A flat rate for photography. Photos returned within 48 hours as standard, captured with a DSLR and phone camera. Optional iPhone videography is captured in 4K at 60 fps (+£15). Original, unedited files only; no retouching or editing is included. We’ll confirm the brief and location before booking.</p><label class="photo-express-option"><input type="checkbox" data-photo-express><span class="custom-checkbox" aria-hidden="true"></span>24-hour delivery — add £10</label><label class="photo-express-option"><input type="checkbox" data-photo-video><span class="custom-checkbox" aria-hidden="true"></span>iPhone videography · 4K at 60 fps (+£15)</label><p class="dx-photo-deposit">£10 deposit only after our call and your acceptance of the final quotation. Pay the remaining £30 after your shoot.</p><a class="btn" data-photo-book href="/start-a-project/?enquiry_service=photography">Plan your shoot ↗</a><a class="dx-cta" href="/service/photography/">Explore photography services ↗</a></div><div class="calculator-step" data-step="fitness">
 	<div class="fitness-preview">
 		<img class="fitness-preview__image" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt="" loading="eager">
 		<div class="fitness-preview__content">
@@ -157,7 +165,7 @@
             <div class="calculator-step" data-step="4">
 				<h2 class="step-title">What added functionality do you require?</h2>
 
-				<div class="options-group">
+				<details class="calculator-optional"><summary>Options for added functionality</summary><div class="options-group">
 					<label>
 						<input type="checkbox" name="features" value="user_account">
 						<span class="custom-checkbox"></span>
@@ -182,7 +190,8 @@
 						No added functionality
 					</label>
 				</div>
-			</div>
+			</details>
+</div>
 
 			<div class="calculator-step" data-step="5">
 				<h2 class="step-title">What’s your ideal timeline?</h2>
@@ -217,7 +226,7 @@
 			<div class="calculator-step" data-step="6">
 				<h2 class="step-title">Do you need ongoing support?</h2>
 
-				<div class="options-group">
+				<details class="calculator-optional"><summary>Ongoing support options</summary><div class="options-group">
 					<label>
 						<input type="checkbox" name="extras" value="maintenance">
 						<span class="custom-checkbox"></span>
@@ -236,24 +245,27 @@
 						Hosting & Monitoring
 					</label>
 				</div>
-			</div>
+			</details>
+</div>
 
 <?php $retainer = dx_retainer_config(); ?>
 <div class="calculator-step" data-step="retainer_level"><h2 class="step-title">What level of monthly support do you need?</h2><div class="options-group">
 <?php foreach ($retainer['tiers'] as $key => $option) : ?><label><input type="radio" name="retainer_level" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_level" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> general support hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
 </div><p class="retainer-note">Essentials suits routine maintenance and minor improvements. Growth supports more regular development and optimisation. Partner offers an ongoing technical and creative partnership.</p></div>
-<div class="calculator-step" data-step="retainer_areas"><h2 class="step-title">What would you like ongoing support with?</h2><div class="options-group">
+<div class="calculator-step" data-step="retainer_areas"><h2 class="step-title">What would you like ongoing support with?</h2><details class="calculator-optional"><summary>Support areas</summary><div class="options-group">
 <?php foreach ($retainer['areas'] as $key => $option) : ?><label><input type="checkbox" name="retainer_areas" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-checkbox"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_areas" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
-</div><p class="retainer-note">Selected categories share your general monthly hours. Category fees cover availability, planning and management; they add no hours. Landing-page work does not guarantee a complete page each month.</p></div>
+</div><p class="retainer-note">Selected categories share your general monthly hours. Category fees cover availability, planning and management; they add no hours. Landing-page work does not guarantee a complete page each month.</p></details>
+</div>
 <div class="calculator-step" data-step="retainer_turnaround"><h2 class="step-title">What turnaround speed do you need?</h2><div class="options-group">
 <?php foreach ($retainer['turnaround'] as $key => $option) : ?><label><input type="radio" name="retainer_turnaround" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_turnaround" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
 </div><p class="retainer-note">These are scheduling targets during published business hours, excluding weekends and public holidays, not guaranteed completion times. Delivery depends on complexity, available hours and agreed scope.</p></div>
 <div class="calculator-step" data-step="retainer_commitment"><h2 class="step-title">What commitment are you comfortable with?</h2><div class="options-group">
 <?php foreach ($retainer['commitments'] as $key => $option) : ?><label><input type="radio" name="retainer_commitment" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_commitment" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
 </div><p class="retainer-note">Longer commitments reduce monthly pricing. Fixed terms and cancellation conditions are subject to agreement.</p></div>
-<div class="calculator-step" data-step="retainer_addons"><h2 class="step-title">Would you like any additional monthly add-ons?</h2><div class="options-group">
+<div class="calculator-step" data-step="retainer_addons"><h2 class="step-title">Would you like any additional monthly add-ons?</h2><details class="calculator-optional"><summary>Available add-ons</summary><div class="options-group">
 <?php foreach ($retainer['addons'] as $key => $option) : ?><label><input type="checkbox" name="retainer_addons" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-checkbox"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_addons" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
-</div></div>
+</div></details>
+</div>
 			<div class="calculator-step" data-step="7">
 				<h2 class="step-title" data-summary-title>Your project outline is ready.</h2>
 
@@ -345,7 +357,7 @@
 					</div>
 				</div>
 
-				<h4>What would you like to do next?</h4>
+				<h4>What would you like to do next?</h4><button type="button" class="summary-edit" data-restart-calculator>Start a new configuration</button>
 
 				<div class="summary-actions"><a class="btn" data-register-estimate href="/sign-up/?from_calculator=1">Create your client account ↗</a><a class="btn calculator-enquire" href="<?php echo esc_url(home_url('/start-a-project/?from_calculator=1')); ?>">Start this project ↗</a>			
 					<button class="btn download-pdf">
@@ -379,9 +391,10 @@
 		</div>
 
 	<div class="calculator-nav">
-		<div class="nav-estimate" hidden><span>Estimated investment</span><strong class="price">£0</strong></div>
-		<button class="prev-step" disabled>Back</button>
-		<button class="next-step" disabled>Next</button>
+		<span data-dock-progress></span>
+		<div class="nav-estimate" hidden><button type="button" data-estimate-breakdown aria-label="Show estimate breakdown"><span>Estimate</span> <strong class="price">£0</strong></button></div>
+		<button type="button" class="prev-step" disabled>Back</button>
+		<button type="button" class="next-step" disabled>Next</button>
 	</div>
 		</div>
 		<div class="calculator-summary">
@@ -398,6 +411,17 @@
 	</div>
 
 
+    <dialog class="calculator-sheet" data-calculator-sheet aria-labelledby="calculator-sheet-title">
+        <div class="calculator-sheet__header"><h2 id="calculator-sheet-title"></h2><button type="button" autofocus>Close</button></div>
+        <div data-sheet-content></div>
+    </dialog>
+
+    <dialog class="calculator-sheet" data-calculator-restart-dialog aria-labelledby="calculator-restart-title">
+        <h2 id="calculator-restart-title">Start again?</h2>
+        <p>This clears your current calculator selections.</p>
+        <button type="button" data-keep-configuration autofocus>Keep selections</button>
+        <button type="button" data-clear-configuration>Start again</button>
+    </dialog>
     <div class="calculator-success is-hidden">
         <h2>Thank you 🎉</h2>
         <p>Your quote has been sent successfully. I’ll be in touch shortly.</p>

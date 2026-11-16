@@ -91,17 +91,38 @@ function dxb_catalog() {
     set_transient('dxb_catalog_v5',$data,HOUR_IN_SECONDS);return $data;
 }
 function dxb_route_profile($id,$live=true) {
-    $catalog=dxb_catalog();if(is_wp_error($catalog))return $catalog;
-    $id=strtoupper($id);$p=$catalog[$id]??[];
-    // Route 618 was reused: its withdrawn Mill Hill service must not label the
-    // current Ivybridge school service, including when reading an older catalog cache.
-    if ($live && $id === '618') {
-        foreach ($p['workings'] ?? [] as $working) {
-            if (($working['label'] ?? '') !== 'School variant' || empty($working['destinations'])) continue;
-            unset($p['listingType'], $p['listingNotes'], $p['withdrawnDate'], $p['withdrawnDates'], $p['historySource']);
+    $id = strtoupper( $id );
+    $confirmed = $live ? dxb_confirmed_route( $id ) : null;
+    $catalog = dxb_catalog();
+    if ( is_wp_error( $catalog ) && ! $confirmed ) return $catalog;
+    $p = is_wp_error( $catalog ) ? [] : ( $catalog[$id] ?? [] );
+
+    if ( $live && ( $p['listingType'] ?? '' ) === 'former' ) {
+        $p['previousServices'] = [[
+            'endpoints' => $p['listingEndpoints'],
+            'notes' => $p['listingNotes'] ?? '',
+            'history' => dxb_route_history( $id, $p ),
+        ]];
+    }
+    if ( $live && in_array( $p['listingType'] ?? '', ['former', 'future'], true ) ) {
+        unset( $p['listingType'], $p['listingNotes'], $p['listingEndpoints'], $p['listingSource'],
+            $p['withdrawnDate'], $p['withdrawnDates'], $p['historySource'] );
+        foreach ( $p['workings'] ?? [] as $working ) {
+            if ( empty( $working['destinations'] ) ) continue;
             $p['listingEndpoints'] = $working['destinations'];
             $p['listingSource'] = $p['source'] ?? '';
-            break;
+            if ( ( $working['label'] ?? '' ) === ( $id === '618' ? 'School variant' : 'Main service' ) ) break;
+        }
+    }
+    if ( $confirmed ) {
+        $p['listingEndpoints'] = $confirmed['endpoints'];
+        $p['listingSource'] = $confirmed['source'];
+        if ( empty( $p['previousServices'] ) ) {
+            $p['previousServices'] = [[
+                'endpoints' => 'Hammersmith ↔ King’s Cross',
+                'history' => ['start'=>'13 August 1988','end'=>'24 November 2018',
+                    'source'=>'https://en.wikipedia.org/wiki/London_Buses_route_10_(1988%E2%80%932018)'],
+            ]];
         }
     }
     // Normalize older cached catalog entries without combining separate withdrawals.
@@ -110,7 +131,6 @@ function dxb_route_profile($id,$live=true) {
         $p['withdrawnDates']=$dates;$p['withdrawnDate']=$dates?end($dates):'';
     }
     $type=$p['listingType']??'regular';
-    if($live&&in_array($type,['former','future']))$type='regular';
     if($type==='regular'){
         if(preg_match('/^SL\d+$/',$id))$type='superloop';elseif(preg_match('/^EL\d+$/',$id))$type='eastlondon';elseif(preg_match('/^BL\d+$/',$id))$type='bakerloop';elseif(preg_match('/^N\d+$/',$id))$type='night';elseif(preg_match('/^9\d{2}$/',$id))$type='mobility';elseif(preg_match('/^6\d{2}$/',$id))$type='school';elseif($p['allDay']??false)$type='24hour';
     }

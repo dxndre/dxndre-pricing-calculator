@@ -17,6 +17,7 @@ require_once __DIR__ . '/includes/directory.php';
 require_once __DIR__ . '/includes/settings.php';
 require_once __DIR__ . '/includes/finance.php';
 require_once __DIR__ . '/includes/documents.php';
+require_once __DIR__ . '/includes/notifications.php';
 require_once __DIR__ . '/includes/finance-handlers.php';
 require_once __DIR__ . '/includes/handlers.php';
 
