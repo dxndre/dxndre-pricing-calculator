@@ -1,4 +1,38 @@
 (() => {
+	function animateCalculatorDialog(dialog) {
+		if (dialog.dataset.motionReady) return;
+		dialog.dataset.motionReady = 'true';
+		const nativeOpen = dialog.showModal.bind(dialog);
+		const nativeClose = dialog.close.bind(dialog);
+		let closing;
+		const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+		dialog.showModal = () => {
+			if (closing) return;
+			dialog.classList.remove('is-closing');
+			nativeOpen();
+			if (!reduced()) {
+				dialog.animate([{opacity:0, transform:'translateY(16px)'},{opacity:1, transform:'translateY(0)'}], {duration:220, easing:'cubic-bezier(.22,1,.36,1)'});
+				dialog.querySelectorAll('.service-detail-list li').forEach((line, index) => {
+					line.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'translateY(0)'}], {duration:280, delay:70 + index * 65, fill:'backwards', easing:'cubic-bezier(.22,1,.36,1)'});
+				});
+			}
+		};
+		dialog.close = value => {
+			if (!dialog.open) return Promise.resolve();
+			if (closing) return closing;
+			if (reduced()) { nativeClose(value); return Promise.resolve(); }
+			closing = (async () => {
+				dialog.classList.add('is-closing');
+				if (!reduced()) await dialog.animate([{opacity:1, transform:'translateY(0)'},{opacity:0, transform:'translateY(12px)'}], {duration:180, easing:'ease-in', fill:'forwards'}).finished.catch(() => {});
+				nativeClose(value);
+				dialog.getAnimations().forEach(motion => motion.cancel());
+				closing = null;
+			})();
+			return closing;
+		};
+		dialog.addEventListener('cancel', event => { event.preventDefault(); dialog.close(); });
+	}
+
 	function showEstimateNotice(message) {
 		const existing = document.querySelector('.dx-estimate-notice');
 		if (existing) {
@@ -25,6 +59,7 @@
 		}, { once: true });
 		dialog.append(title, copy, close);
 		document.body.append(dialog);
+		animateCalculatorDialog(dialog);
 		dialog.showModal();
 	}
 
@@ -254,16 +289,29 @@
 		return cloned.textContent.trim();
 	};
 
+	const priceAnimations = new WeakMap();
 	const fadeUpdatePrice = (el, value) => {
 		if (!el) return;
-		el.classList.add('is-updating');
-		setTimeout(() => {
-			el.textContent = formatPrice(value);
-			if(state.service === 'retainer'){const suffix=document.createElement('span');suffix.className='price-suffix';suffix.textContent=' / MONTH';el.append(suffix);}
-			requestAnimationFrame(() => {
-				el.classList.remove('is-updating');
-			});
-		}, 150);
+		const previous = priceAnimations.get(el);
+		const monthly = el.matches('.price') && state.service === 'retainer';
+		if (previous?.target === value && previous.monthly === monthly) return;
+		if (previous?.frame) cancelAnimationFrame(previous.frame);
+		const motion = {value: previous?.value ?? value, target: value, monthly, frame: null};
+		priceAnimations.set(el, motion);
+		const render = amount => {
+			motion.value = amount;
+			el.textContent = el.matches('.dx-photo-price') ? `£${Number(amount.toFixed(2))}` : formatPrice(amount);
+			if (monthly) { const suffix = document.createElement('span'); suffix.className = 'price-suffix'; suffix.textContent = ' / MONTH'; el.append(suffix); }
+		};
+		if (!previous || matchMedia('(prefers-reduced-motion: reduce)').matches) { render(value); return; }
+		const start = motion.value, started = performance.now();
+		const tick = now => {
+			const progress = Math.min(1, (now - started) / 280);
+			render(start + (value - start) * (1 - Math.pow(1 - progress, 3)));
+			if (progress < 1) motion.frame = requestAnimationFrame(tick);
+			else motion.frame = null;
+		};
+		motion.frame = requestAnimationFrame(tick);
 	};
 
 	const isSummaryStep = (stepKey) => stepKey === '7';
@@ -327,6 +375,27 @@
 		const progress = total <= 1 ? 100 : Math.round((currentStepIndex / (total - 1)) * 100);
 
 		progressFill.style.width = `${progress}%`;
+		const progressBar = progressFill.closest('[role="progressbar"]');
+		progressBar.setAttribute('aria-valuemin', '1');
+		progressBar.setAttribute('aria-valuemax', String(total));
+		progressBar.setAttribute('aria-valuenow', String(current));
+		progressBar.setAttribute('aria-valuetext', `Step ${current} of ${total}`);
+		calculator.querySelector('[data-progress-count]').textContent = `${String(current).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+		const segments = calculator.querySelector('.calculator-segments');
+		while (segments.children.length < total) segments.append(document.createElement('span'));
+		[...segments.children].forEach((segment, index) => {
+			segment.classList.toggle('is-unused', index >= total);
+			segment.classList.toggle('is-complete', index < currentStepIndex);
+			segment.classList.toggle('is-current', index === currentStepIndex);
+		});
+		const progressCount = calculator.querySelector('[data-progress-count]');
+		const progressState = `${current}/${total}`;
+		if (segments.dataset.state !== progressState && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			[progressCount, calculator.querySelector('[data-dock-progress]')].forEach(element => element.animate([{opacity:0.4,translate:'0 3px'},{opacity:1,translate:'0 0'}],{duration:220,easing:'ease-out'}));
+		}
+		segments.dataset.state = progressState;
+		calculator.classList.toggle('is-final-step', current === total);
+
 		progressLabel.textContent = `Step ${current} of ${total} · ${getCurrentStepEl()?.querySelector('.step-title')?.textContent.trim() || ''}`;
 		calculator.querySelector('[data-dock-progress]').textContent = `Step ${current}/${total}`;
 		const jump = calculator.querySelector('[data-completed-steps]');
@@ -485,11 +554,13 @@
         if(state.service_category==='photography') {
           const express=!!calculator.querySelector('[data-photo-express]')?.checked;const video = calculator.querySelector('[data-photo-video]').checked;
           state.total = 40 + (express ? 10 : 0) + (video ? 15 : 0);
+          fadeUpdatePrice(calculator.querySelector('.dx-photo-price'), state.total);
           const book = calculator.querySelector('[data-photo-book]');
           const enquiry = new URL(book.href);
           enquiry.searchParams.set('photo_type', state.photo_type || '');
           enquiry.searchParams.set('photo_video', video ? '1' : '0');
           enquiry.searchParams.set('photo_express', express ? '1' : '0');
+          enquiry.searchParams.set('photo_delivery', express ? 'express' : 'standard');
           book.href = enquiry.href;
           calculator.querySelector('.dx-photo-deposit').textContent = `£10 deposit only after our call and your acceptance of the final quotation. Pay the remaining £${state.total - 10} after your shoot.`;
           rows = [{label: state.photo_type ? 'Photography · ' + state.photo_type : 'Photography', amount:40, group:'photo_type'}];
@@ -652,6 +723,7 @@
 
 		target.hidden = false;
 		target.classList.add('is-active');
+		calculator.closest('.calculator-experience')?.classList.toggle('is-fitness-pane', target.dataset.step === 'fitness');
 		calculator.dataset.step = getCurrentStepKey();
         personalisation.hidden = !['category','7'].includes(getCurrentStepKey());
 		calculator.querySelector('.calculator-summary').classList.toggle('is-review', getCurrentStepKey() === '7');
@@ -710,6 +782,9 @@
 			}
 			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
 				target.animate([{opacity:.55},{opacity:1}], {duration:180, easing:'ease-out'});
+				target.querySelectorAll('.options-group > label, .options-group > .service-option').forEach((option, index) => {
+					option.animate([{opacity:0, transform:'translateY(12px)'},{opacity:1, transform:'translateY(0)'}], {duration:240, delay:Math.min(index * 35, 280), fill:'backwards', easing:'cubic-bezier(.22,1,.36,1)'});
+				});
 			}
 		}
 
@@ -1264,6 +1339,7 @@
 	   INIT
 	========================== */
 
+	calculator.querySelectorAll('dialog').forEach(animateCalculatorDialog);
 	const comparisonDialog=calculator.querySelector('.package-comparison');
 	comparisonDialog.addEventListener('cancel',()=>{comparisonOpen=false;});
 	comparisonDialog.addEventListener('click',event=>{if(event.target===comparisonDialog){const r=comparisonDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom){comparisonOpen=false;updateRetainerUI();}}});
@@ -1292,11 +1368,23 @@
 		const estimate = calculator.querySelector('.summary-content');
 		const fragment = document.createDocumentFragment();
 		fragment.append(...[estimate.querySelector('.summary-breakdown'), estimate.querySelector('.summary-price')].map(element => element.cloneNode(true)));
-		fragment.querySelectorAll('button, [id]').forEach(element => element.matches('button') ? element.remove() : element.removeAttribute('id'));
-		showSheet('Estimated investment', fragment);
+		fragment.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+		const originals = [...estimate.querySelectorAll('.summary-breakdown button')];
+		fragment.querySelectorAll('.summary-breakdown button').forEach((button, index) => {
+			button.addEventListener('click', () => { sheet.close(); originals[index]?.click(); });
+		});
+		showSheet('Your project', fragment);
+	});
+	calculator.querySelectorAll('[data-service-details]').forEach(link => {
+		link.addEventListener('click', event => {
+			event.preventDefault();
+			event.stopPropagation();
+			const option = link.closest('.service-option');
+			showSheet(option.querySelector('input').dataset.label, option.querySelector('.service-option__content').cloneNode(true));
+		});
 	});
 	const detailAnimations=new WeakMap();
-	const defaultDisclosures = () => calculator.querySelectorAll('.calculator-optional').forEach(detail => { detail.open = !compact.matches; });
+	const defaultDisclosures = () => calculator.querySelectorAll('.calculator-optional').forEach(detail => { detail.open = detail.classList.contains('calculator-optional--always-open') || !compact.matches; });
 	defaultDisclosures();
 	compact.addEventListener('change', defaultDisclosures);
 	calculator.querySelectorAll('.calculator-optional > summary').forEach(summary => {
@@ -1317,7 +1405,7 @@
 		detailAnimations.set(detail,motion);
 		motion.onfinish=()=>{detail.open=opening;detail.style.overflow='';detailAnimations.delete(detail);};
 	};
-	calculator.querySelectorAll('.service-option__details').forEach(detail=>{
+	calculator.querySelectorAll('details.service-option__details').forEach(detail=>{
 		detail.querySelector('summary').addEventListener('click',event=>{
 			event.preventDefault();
 			if (compact.matches) {
@@ -1358,17 +1446,43 @@
 	calculator.querySelector('[data-close-personalisation]')?.addEventListener('click',()=>{editor.hidden=true;calculator.querySelector('[data-edit-personalisation]').focus();});
 	calculator.querySelector('[data-save-personalisation]')?.addEventListener('click',()=>{state.client_name=editor.querySelector('[data-edit-name]').value.trim();state.client_company=editor.querySelector('[data-edit-company]').value.trim();calculator.querySelector('[name="client_name"]').value=state.client_name;calculator.querySelector('[name="client_company"]').value=state.client_company;editor.hidden=true;resetFinalizedQuote();updateSummary();finalizeQuote();calculator.querySelector('[data-edit-personalisation]').focus();});
 	const storageKey = 'dxndre-calculator-configuration-v1';
+	const basketParams = new URL(location.href).searchParams;
+	const basketSlug = basketParams.get('basket_service');
+	const basketKeys = {'wordpress-development':'wp_development','one-time-fixes':'one_off'};
+	const serviceKey = slug => basketKeys[slug] || slug;
+	const configurationKey = slug => storageKey + ':' + slug;
+	let hydrating = true;
 	const savedFields = ['service_category','photo_type','service','scope','type','timeline','features','extras','retainer_level','retainer_areas','retainer_turnaround','retainer_commitment','retainer_addons','payment_plan'];
 	const saveConfiguration = () => {
 		try {
-			if (!state.service_category) return;
+			if (hydrating || !state.service_category) return;
 			const fields = Object.fromEntries(savedFields.map(key => [key, state[key]]));
-			sessionStorage.setItem(storageKey, JSON.stringify({fields, step:getCurrentStepKey(), express:calculator.querySelector('[data-photo-express]').checked, video:calculator.querySelector('[data-photo-video]').checked}));
+			const step = getCurrentStepKey();
+			const slug = state.service_category === 'photography' ? 'photography'
+				: Object.keys(basketKeys).find(key => basketKeys[key] === state.service) || state.service;
+			const previous = slug && JSON.parse(sessionStorage.getItem(configurationKey(slug)));
+			const finalStep = activeFlow[activeFlow.length - 1];
+			const valid = activeFlow.slice(0, -1).every(isStepValid);
+			const configured = valid && (step === finalStep || previous?.configured === true);
+			const snapshot = {fields, step, configured, express:calculator.querySelector('[data-photo-express]').checked, video:calculator.querySelector('[data-photo-video]').checked};
+			sessionStorage.setItem(storageKey, JSON.stringify(snapshot));
+			if (slug && (state.service_category === 'digital' || state.service_category === 'photography')) {
+				const group = state.service_category === 'photography' ? 'photo_type' : state.service === 'retainer' ? 'retainer_level' : 'scope';
+				snapshot.summary = state[group] ? getLabelText(group, state[group]) : '';
+				sessionStorage.setItem(configurationKey(slug), JSON.stringify(snapshot));
+				document.dispatchEvent(new Event('dx-calculator-configuration'));
+			}
 		} catch (_) {}
 	};
 	const restoreConfiguration = () => {
 		try {
-			const saved = JSON.parse(sessionStorage.getItem(storageKey));
+			let saved = JSON.parse(sessionStorage.getItem(basketSlug ? configurationKey(basketSlug) : storageKey));
+			if (!saved && basketSlug) {
+				const legacy = JSON.parse(sessionStorage.getItem(storageKey));
+				const matches = basketSlug === 'photography' ? legacy?.fields?.service_category === 'photography'
+					: legacy?.fields?.service_category === 'digital' && legacy.fields.service === serviceKey(basketSlug);
+				if (matches) saved = legacy;
+			}
 			if (!saved?.fields?.service_category) return 0;
 			for (const key of savedFields) {
 				const value = saved.fields[key];
@@ -1397,17 +1511,12 @@
 	const restart = calculator.querySelector('[data-calculator-restart-dialog]');
 	calculator.querySelectorAll('[data-restart-calculator]').forEach(button => button.addEventListener('click', () => restart.showModal()));
 	restart.addEventListener('cancel', event => { event.preventDefault(); closeRestart(); });
-	const closeRestart = async () => {
-		if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-			await restart.animate([{opacity:1},{opacity:0}], {duration:160,fill:'forwards'}).finished.catch(() => {});
-			restart.getAnimations().forEach(animation => animation.cancel());
-		}
-		restart.close();
-	};
+	const closeRestart = () => restart.close();
 	restart.querySelector('[data-keep-configuration]').addEventListener('click', closeRestart);
 	restart.querySelector('[data-clear-configuration]').addEventListener('click', () => {
 		try {
 			sessionStorage.removeItem(storageKey);
+			if (basketSlug) sessionStorage.removeItem(configurationKey(basketSlug));
 			sessionStorage.removeItem('dxndre-calculator-handoff');
 		} catch (_) {}
 		location.reload();
@@ -1416,21 +1525,50 @@
 	bindInputs();
 	applyActiveFlow();
 	let restoredIndex = restoreConfiguration();
-	const basketService = new URL(location.href).searchParams.get('basket_service');
-	const basketKeys = {'wordpress-development':'wp_development','one-time-fixes':'one_off'};
+	const basketService = basketSlug;
 	const basketInput = [...calculator.querySelectorAll('[name="service"]')].find(input => input.value === (basketKeys[basketService] || basketService));
 	if (basketInput || basketService === 'photography') {
 		const category = calculator.querySelector(`[name="service_category"][value="${basketInput ? 'digital' : 'photography'}"]`);
 		if (!category.checked) category.click();
 		if (basketInput && !basketInput.checked) basketInput.click();
 		const unanswered = activeFlow.findIndex(key => !isStepValid(key) || isSummaryStep(key) || key === 'photography' || stepLookup[key]?.querySelector('.calculator-optional'));
-		restoredIndex = unanswered < 0 ? activeFlow.length - 1 : unanswered;
+		const saved = (() => {
+			try { return JSON.parse(sessionStorage.getItem(configurationKey(basketService))); } catch (_) { return null; }
+		})();
+		if (saved?.configured && basketParams.has('basket_review') && activeFlow.slice(0, -1).every(isStepValid)) restoredIndex = activeFlow.length - 1;
+		else if (saved) restoredIndex = Math.max(0, restoredIndex);
+		else restoredIndex = unanswered < 0 ? activeFlow.length - 1 : unanswered;
 	}
 	updateSummary();
 	syncFeatureExclusivity();
+	hydrating = false;
 	goToStepIndex(restoredIndex);
 	initScrollableHint();
 	syncActiveLabels();
 	updateSummaryCopy();
+
+	const revealCalculator = () => {
+		if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		calculator.querySelectorAll('.calculator-progress-caption, .calculator-segments, .calculator-session > :not([hidden]), .calculator-step.is-active .step-title, .calculator-step.is-active .step-intro, .calculator-step.is-active .category-card, .calculator-step.is-active .calculator-intro-fields, .calculator-nav').forEach((element, index) => {
+			element.animate([{opacity:0, transform:'translateY(16px)'},{opacity:1, transform:'translateY(0)'}], {duration:600,delay:Math.min(index*55,440),fill:'backwards',easing:'cubic-bezier(.22,1,.36,1)'});
+		});
+	};
+	if (getCurrentStepKey() === 'category') {
+		const splash = document.createElement('div');
+		splash.className = 'dx-calculator-splash';
+		splash.setAttribute('role', 'status');
+		splash.innerHTML = '<div class="dx-calculator-splash__content"><span class="dx-calculator-splash__brand">DX.</span><p class="dx-calculator-splash__eyebrow">YOUR NEXT CHAPTER</p><h2>Pricing<br><span>Calculator</span></h2><div class="dx-calculator-splash__track" aria-hidden="true"><span></span></div><p class="dx-calculator-splash__status">Preparing your project space</p></div>';
+		document.body.append(splash);
+		calculator.inert = true;
+		const started = performance.now();
+		splash.dataset.started = String(started);
+		Promise.all([new Promise(resolve=>setTimeout(resolve,3000)), document.fonts?.ready || Promise.resolve()]).then(async () => {
+			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) await splash.animate([{opacity:1},{opacity:0}],{duration:300,easing:'ease-out',fill:'forwards'}).finished.catch(()=>{});
+			splash.remove();
+			calculator.inert = false;
+			calculator.dataset.splashDuration = String(performance.now()-started);
+			revealCalculator();
+		});
+	} else revealCalculator();
 
 })();

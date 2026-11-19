@@ -1,4 +1,4 @@
-<div class="calculator-hero-media" aria-hidden="true"><img class="calculator-beach" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/10/calculator-bus-electroliners-v2.png')); ?>" alt="" decoding="async" fetchpriority="high"></div>
+<div class="calculator-hero-media" aria-hidden="true"><picture><source media="(max-width: 1199.98px)" srcset="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img class="calculator-beach" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/10/calculator-bus-electroliners-v2.png')); ?>" alt="" decoding="async" fetchpriority="high"></picture></div>
 <div class="calculator-glow calculator-glow--off-black" aria-hidden="true"></div>
 <div class="pricing-calculator" data-step="1">
 
@@ -6,7 +6,9 @@
 	<div class="calculator-step-container">
 		<div class="calculator-question-panel">
     <div class="calculator-progress">
-		<div class="progress-bar">
+		<div class="calculator-progress-caption" aria-hidden="true"><span>Your project</span><span data-progress-count></span></div>
+		<div class="calculator-segments" aria-hidden="true"></div>
+		<div class="progress-bar" role="progressbar" aria-label="Project configuration progress">
 			<span class="progress-fill"></span>
 		</div>
 		<p class="progress-label headline" aria-live="polite"></p>
@@ -20,14 +22,14 @@
 	<p class="step-intro">Choose the kind of support you’re looking for.</p>
 	<div class="options-group options-group--categories">
 		<label class="category-card category-card--digital">
-			<img class="category-card__image" src="<?php echo esc_url(get_the_post_thumbnail_url(229, 'large')); ?>" alt="" loading="eager">
-			<input type="radio" name="service_category" value="digital" aria-label="Digital services"><span class="custom-radio"></span>
-			<span class="category-card__content"><span class="category-card__eyebrow">DESIGN &amp; TECHNOLOGY</span><strong>Digital services</strong><span class="category-card__description">Considered design. Powerful websites.<br>Ongoing technical support.</span><span class="category-card__action">Plan your project <span aria-hidden="true">↗</span></span></span>
+			<picture><source media="(max-width: 1199.98px)" srcset="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img class="category-card__image" src="<?php echo esc_url(get_the_post_thumbnail_url(229, 'large')); ?>" alt="" loading="eager"></picture>
+			<input type="radio" name="service_category" value="digital" aria-label="Digital services"><span class="custom-radio"></span><span class="category-card__icon" aria-hidden="true">⌘</span>
+			<span class="category-card__content"><span class="category-card__eyebrow">DESIGN &amp; TECHNOLOGY</span><strong>Digital services</strong><span class="category-card__description"><span class="category-card__desktop-copy">Considered design. Powerful websites.<br>Ongoing technical support.</span><span class="category-card__compact-copy">Websites, design &amp; development</span></span><span class="category-card__action">Plan your project <span aria-hidden="true">↗</span></span></span>
 		</label>
-<label class="category-card category-card--photography"><img class="category-card__image" src="<?php echo esc_url(get_template_directory_uri().'/assets/img/account-night.jpeg');?>" alt="" loading="lazy"><input type="radio" name="service_category" value="photography" aria-label="Photography"><span class="custom-radio"></span><span class="category-card__content"><span class="category-card__eyebrow">THROUGH MY LENS</span><strong>Photography</strong><span class="category-card__description">A considered perspective for people, places and brands.</span><span class="category-card__action">£40 flat rate ↗</span></span></label>		<label class="category-card category-card--fitness">
-			<img class="category-card__image" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt="" loading="eager">
-			<input type="radio" name="service_category" value="fitness" aria-label="Fitness coaching"><span class="custom-radio"></span>
-			<span class="category-card__content"><span class="category-card__eyebrow">N118 FITNESS <span class="category-card__badge">Coming soon</span></span><strong>Fitness coaching</strong><span class="category-card__description">Personal coaching built around<br>your goals, your pace and your potential.</span><span class="category-card__action">Discover what’s next <span aria-hidden="true">↗</span></span></span>
+<label class="category-card category-card--photography"><picture><source media="(max-width: 1199.98px)" srcset="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img class="category-card__image" src="<?php echo esc_url(get_template_directory_uri().'/assets/img/account-night.jpeg');?>" alt="" loading="lazy"></picture><input type="radio" name="service_category" value="photography" aria-label="Photography"><span class="custom-radio"></span><span class="category-card__icon" aria-hidden="true">◉</span><span class="category-card__content"><span class="category-card__eyebrow">THROUGH MY LENS</span><strong>Photography</strong><span class="category-card__description"><span class="category-card__desktop-copy">A considered perspective for people, places and brands.</span><span class="category-card__compact-copy">People, places &amp; brands</span></span><span class="category-card__action">£40 flat rate ↗</span></span></label>		<label class="category-card category-card--fitness">
+			<picture><source media="(max-width: 1199.98px)" srcset="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img class="category-card__image" src="<?php echo esc_url(home_url('/wp-content/uploads/2026/09/fitness.png')); ?>" alt="" loading="eager"></picture>
+			<input type="radio" name="service_category" value="fitness" aria-label="Fitness coaching"><span class="custom-radio"></span><span class="category-card__icon" aria-hidden="true">↗</span>
+			<span class="category-card__content"><span class="category-card__eyebrow">N118 FITNESS <span class="category-card__badge">Coming soon</span></span><strong>Fitness coaching</strong><span class="category-card__description"><span class="category-card__desktop-copy">Personal coaching built around<br>your goals, your pace and your potential.</span><span class="category-card__compact-copy">Personal training &amp; guidance</span></span><span class="category-card__action">Discover what’s next <span aria-hidden="true">↗</span></span></span>
 		</label>
 
 	</div>
@@ -65,11 +67,11 @@
 				<input type="radio" name="service" value="<?php echo esc_attr($service['key']); ?>" data-label="<?php echo esc_attr($service['title']); ?>" aria-label="<?php echo esc_attr($service['title']); ?>">
 				<span class="service-option__number" aria-hidden="true"><?php echo esc_html(sprintf('%02d', $index + 1)); ?></span>
 				<?php if ($service['image']) : ?><img class="service-option__image" src="<?php echo esc_url($service['image']); ?>" alt="" loading="lazy"><?php endif; ?>
-				<span class="service-option__copy"><strong><?php echo esc_html($service['title']); ?></strong><span><?php echo esc_html($service['excerpt']); ?></span></span>
+				<span class="service-option__copy"><strong><?php echo esc_html($service['title']); ?></strong><span><?php echo esc_html($service['excerpt']); ?></span><a class="service-option__details-link" data-service-details href="#calculator-sheet-title" aria-haspopup="dialog" aria-label="<?php echo esc_attr('Explore details for '.$service['title']); ?>">Explore details <span aria-hidden="true">↗</span></a></span>
 				<span class="service-option__price"><small class="dx-price-from">FROM</small> £<?php echo esc_html(number_format($service['price'], 0)); ?><?php if ($service['monthly']) : ?><small>/ month</small><?php endif; ?></span>
 				<span class="custom-radio"></span>
 			</label>
-			<details class="service-option__details"><summary aria-label="Explore details for <?php echo esc_attr($service['title']); ?>">Explore details</summary><div class="service-option__content"><ul class="service-detail-list"><?php foreach (preg_split('/\r\n|\r|\n/', $service['features'] ?: $service['excerpt']) as $detail) : if (!trim($detail)) continue; ?><li><?php echo esc_html(trim($detail)); ?></li><?php endforeach; ?></ul></div></details>
+			<div class="service-option__information" hidden><div class="service-option__content"><ul class="service-detail-list"><?php foreach (preg_split('/\r\n|\r|\n/', $service['features'] ?: $service['excerpt']) as $detail) : if (!trim($detail)) continue; ?><li><?php echo esc_html(trim($detail)); ?></li><?php endforeach; ?></ul></div></div>
 		</div>
 		<?php endforeach; ?>
 	</div>
@@ -165,7 +167,7 @@
             <div class="calculator-step" data-step="4">
 				<h2 class="step-title">What added functionality do you require?</h2>
 
-				<details class="calculator-optional"><summary>Options for added functionality</summary><div class="options-group">
+				<div class="calculator-choices"><div class="options-group">
 					<label>
 						<input type="checkbox" name="features" value="user_account">
 						<span class="custom-checkbox"></span>
@@ -190,7 +192,7 @@
 						No added functionality
 					</label>
 				</div>
-			</details>
+			</div>
 </div>
 
 			<div class="calculator-step" data-step="5">
@@ -226,7 +228,7 @@
 			<div class="calculator-step" data-step="6">
 				<h2 class="step-title">Do you need ongoing support?</h2>
 
-				<details class="calculator-optional"><summary>Ongoing support options</summary><div class="options-group">
+				<div class="calculator-choices"><div class="options-group">
 					<label>
 						<input type="checkbox" name="extras" value="maintenance">
 						<span class="custom-checkbox"></span>
@@ -245,16 +247,16 @@
 						Hosting & Monitoring
 					</label>
 				</div>
-			</details>
+			</div>
 </div>
 
 <?php $retainer = dx_retainer_config(); ?>
 <div class="calculator-step" data-step="retainer_level"><h2 class="step-title">What level of monthly support do you need?</h2><div class="options-group">
 <?php foreach ($retainer['tiers'] as $key => $option) : ?><label><input type="radio" name="retainer_level" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_level" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> general support hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
 </div><p class="retainer-note">Essentials suits routine maintenance and minor improvements. Growth supports more regular development and optimisation. Partner offers an ongoing technical and creative partnership.</p></div>
-<div class="calculator-step" data-step="retainer_areas"><h2 class="step-title">What would you like ongoing support with?</h2><details class="calculator-optional"><summary>Support areas</summary><div class="options-group">
+<div class="calculator-step" data-step="retainer_areas"><h2 class="step-title">What would you like ongoing support with?</h2><div class="calculator-choices"><div class="options-group">
 <?php foreach ($retainer['areas'] as $key => $option) : ?><label><input type="checkbox" name="retainer_areas" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-checkbox"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_areas" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
-</div><p class="retainer-note">Selected categories share your general monthly hours. Category fees cover availability, planning and management; they add no hours. Landing-page work does not guarantee a complete page each month.</p></details>
+</div><p class="retainer-note">Selected categories share your general monthly hours. Category fees cover availability, planning and management; they add no hours. Landing-page work does not guarantee a complete page each month.</p></div>
 </div>
 <div class="calculator-step" data-step="retainer_turnaround"><h2 class="step-title">What turnaround speed do you need?</h2><div class="options-group">
 <?php foreach ($retainer['turnaround'] as $key => $option) : ?><label><input type="radio" name="retainer_turnaround" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_turnaround" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
@@ -262,9 +264,9 @@
 <div class="calculator-step" data-step="retainer_commitment"><h2 class="step-title">What commitment are you comfortable with?</h2><div class="options-group">
 <?php foreach ($retainer['commitments'] as $key => $option) : ?><label><input type="radio" name="retainer_commitment" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-radio"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_commitment" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
 </div><p class="retainer-note">Longer commitments reduce monthly pricing. Fixed terms and cancellation conditions are subject to agreement.</p></div>
-<div class="calculator-step" data-step="retainer_addons"><h2 class="step-title">Would you like any additional monthly add-ons?</h2><details class="calculator-optional"><summary>Available add-ons</summary><div class="options-group">
+<div class="calculator-step" data-step="retainer_addons"><h2 class="step-title">Would you like any additional monthly add-ons?</h2><div class="calculator-choices"><div class="options-group">
 <?php foreach ($retainer['addons'] as $key => $option) : ?><label><input type="checkbox" name="retainer_addons" value="<?php echo esc_attr($key); ?>" data-label="<?php echo esc_attr($option['name']); ?>"><span class="custom-checkbox"></span><span class="retainer-option-copy"><strong><?php echo esc_html($option['name']); ?></strong><span class="retainer-option-price" data-retainer-price="retainer_addons" data-value="<?php echo esc_attr($key); ?>"></span><?php if (isset($option['hours'])) : ?><small><?php echo esc_html($option['hours']); ?> dedicated landing-page hours/month</small><?php endif; ?><?php if (isset($option['description'])) : ?><small><?php echo esc_html($option['description']); ?></small><?php endif; ?></span></label><?php endforeach; ?>
-</div></details>
+</div></div>
 </div>
 			<div class="calculator-step" data-step="7">
 				<h2 class="step-title" data-summary-title>Your project outline is ready.</h2>
@@ -412,7 +414,7 @@
 
 
     <dialog class="calculator-sheet" data-calculator-sheet aria-labelledby="calculator-sheet-title">
-        <div class="calculator-sheet__header"><h2 id="calculator-sheet-title"></h2><button type="button" autofocus>Close</button></div>
+        <div class="calculator-sheet__header"><h2 id="calculator-sheet-title"></h2><button type="button" class="calculator-dialog-close" aria-label="Close dialog" autofocus><span aria-hidden="true">×</span></button></div>
         <div data-sheet-content></div>
     </dialog>
 
