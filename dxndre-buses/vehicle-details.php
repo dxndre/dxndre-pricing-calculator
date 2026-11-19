@@ -16,12 +16,12 @@ function dxb_vehicle_garage_label($garage) {
  return $name ? $name.($code&&stripos($name,'('.$code.')')===false?' ('.$code.')':'') : '';
 }
 function dxb_vehicle_info($r){
- $reg=strtoupper(preg_replace('/\s+/','',$r['vehicle']));$key='dxb_vehicle_v3_'.md5($reg);$cached=get_transient($key);if($cached!==false)return dxb_vehicle_decker_type($cached);
+ $reg=strtoupper(preg_replace('/\s+/','',$r['vehicle']));$key='dxb_vehicle_v4_'.md5($reg);$cached=get_transient($key);if($cached!==false)return dxb_vehicle_decker_type($cached);
  $response=wp_remote_get('https://bustimes.org/api/vehicles/?reg='.rawurlencode($reg),['timeout'=>8,'limit_response_size'=>200000]);
  if(is_wp_error($response)||wp_remote_retrieve_response_code($response)!==200)return new WP_Error('vehicle_unavailable','Fleet details are temporarily unavailable.',['status'=>503]);
  $data=json_decode(wp_remote_retrieve_body($response),true);$matches=array_values(array_filter($data['results']??[],static fn($v)=>strtoupper(str_replace(' ','',$v['reg']??''))===$reg));
  $result=['registration'=>$reg,'found'=>false];
- if(count($matches)===1){$v=$matches[0];$t=$v['vehicle_type']??[];$result+=['fleet'=>$v['fleet_code']?:($v['fleet_number']??''),'model'=>$t['name']??'','type'=>$t['style']??'','fuel'=>$t['fuel']??'','garage'=>dxb_vehicle_garage_label($v['garage']??null),'source'=>'https://bustimes.org/vehicles/'.rawurlencode($v['slug']),'withdrawn'=>(bool)($v['withdrawn']??false)];$result['found']=true;$features=wp_json_encode($v['special_features']??'').' '.($v['notes']??'');$result['usb']=preg_match('/\bUSB\b/i',$features)?(preg_match('/(?:no|without)\s+USB/i',$features)?false:true):null;}
+ if(count($matches)===1){$v=$matches[0];$t=$v['vehicle_type']??[];$result+=['operator'=>sanitize_text_field($v['operator']['name']??''),'fleet'=>$v['fleet_code']?:($v['fleet_number']??''),'model'=>$t['name']??'','type'=>$t['style']??'','fuel'=>$t['fuel']??'','garage'=>dxb_vehicle_garage_label($v['garage']??null),'source'=>'https://bustimes.org/vehicles/'.rawurlencode($v['slug']),'withdrawn'=>(bool)($v['withdrawn']??false)];$result['found']=true;$features=wp_json_encode($v['special_features']??'').' '.($v['notes']??'');$result['usb']=preg_match('/\bUSB\b/i',$features)?(preg_match('/(?:no|without)\s+USB/i',$features)?false:true):null;}
  $result=dxb_vehicle_decker_type($result);set_transient($key,$result,$result['found']?DAY_IN_SECONDS:HOUR_IN_SECONDS);return $result;
 }
 add_action('rest_api_init',static function(){

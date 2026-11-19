@@ -1,5 +1,14 @@
 <?php if(!defined('ABSPATH'))exit; $photos=dxb_photos();get_header(); ?>
-<main class="dxb dx-photography"><div class="dxb-wrap"><header class="dx-photo-hero"><p class="dxb-eyebrow">Through my lens</p><h1>Life through the <span class="dx-lens-word">lens.</span></h1><p>London, its buses, and the moments in between.</p><div class="dx-photo-hero-actions"><a class="dx-cta" href="#photography">See the pictures <span aria-hidden="true">↓</span></a><a class="dx-cta dx-cta--outline" href="<?php echo esc_url(home_url('/service/photography/')); ?>">Hire me <span aria-hidden="true">↗</span></a></div></header>        <section id="photography" class="dxb-section" aria-labelledby="photo-heading">
+<main class="dxb dx-photography"><div class="dxb-wrap"><header class="dx-photo-hero"><p class="dxb-eyebrow">Through my lens</p><h1>Life through the <span class="dx-lens-word">lens.</span></h1><p>London, its buses, and the moments in between.</p><div class="dx-photo-hero-actions"><a class="dx-cta" href="#photography">See the pictures <span aria-hidden="true">↓</span></a><a class="dx-cta dx-cta--outline" href="<?php echo esc_url(home_url('/service/photography/')); ?>">Hire me <span aria-hidden="true">↗</span></a></div></header>
+        <section class="dx-photo-about" aria-labelledby="dx-photo-about-title">
+            <p class="dxb-eyebrow">Behind the lens</p>
+            <h2 id="dx-photo-about-title">The city moves.<br><em>I stop to look.</em></h2>
+            <div class="dx-photo-about__copy">
+                <p>I’m D’André. I photograph London’s buses, streets and the details you only notice when you slow down.</p>
+                <p>This archive brings those moments together, from familiar routes seen in a different light to the quiet spaces between journeys.</p>
+            </div>
+        </section>
+        <section id="photography" class="dxb-section" aria-labelledby="photo-heading">
             <header class="dxb-section-heading"><div><p class="dxb-eyebrow">Through my lens</p><h2 id="photo-heading">A growing collection.</h2></div><span class="dxb-small dxb-muted"><?php echo count($photos); ?> photographs in the archive</span></header>
             <div class="dx-photo-view-tabs" role="tablist" aria-label="Photograph view"><button type="button" id="dx-photo-gallery-tab" role="tab" aria-controls="dxb-gallery" aria-selected="true" data-photo-view="gallery">Gallery <span aria-hidden="true">↗</span></button><button type="button" id="dx-photo-map-tab" role="tab" aria-controls="dx-photo-map-panel" aria-selected="false" tabindex="-1" data-photo-view="map">Map <span aria-hidden="true">⌖</span></button></div>
             <div class="dxb-gallery-toolbar"><div class="dxb-chips dx-photo-groups" aria-label="Filter photographs"><button type="button" data-photo-filter="all" aria-pressed="true">All photographs</button><button type="button" data-photo-filter="buses" aria-pressed="false">London Buses</button><button type="button" data-photo-filter="scenery" aria-pressed="false">Scenery</button></div>
