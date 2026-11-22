@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DXNDRE Pricing Calculator
  * Description: Multi-step project pricing calculator
- * Version: 2.0.2
+ * Version: 3.0.0
  */
 
 if (!defined('ABSPATH')) exit;
@@ -395,7 +395,7 @@ function dx_build_quote_html($state) {
 			</table>
 
 			<div class="total">
-				<strong><?= $is_retainer ? 'Monthly estimate' : 'Total' ?> £<?= $total ?><?= $is_retainer ? ' / month' : '' ?></strong>
+				<?= dx_estimate_totals_html($state) ?>
 			</div>
 
 			<div class="footer">

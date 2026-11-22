@@ -59,17 +59,17 @@
 <div class="calculator-step" data-step="1">
 	<h2 class="step-title">What would you like to create?</h2>
 
-	<p class="step-intro">Choose the service that best fits your project. Explore the details whenever you need them.</p>
+	<p class="step-intro">Choose one or more services. We’ll ask shared project questions once, then cover the details for each service.</p>
 	<div class="options-group options-group--services">
 		<?php foreach (dx_calculator_services() as $index => $service) : ?>
 		<div class="service-option">
 			<label>
-				<input type="radio" name="service" value="<?php echo esc_attr($service['key']); ?>" data-label="<?php echo esc_attr($service['title']); ?>" aria-label="<?php echo esc_attr($service['title']); ?>">
+				<input type="checkbox" name="service" value="<?php echo esc_attr($service['key']); ?>" data-label="<?php echo esc_attr($service['title']); ?>" aria-label="<?php echo esc_attr($service['title']); ?>">
 				<span class="service-option__number" aria-hidden="true"><?php echo esc_html(sprintf('%02d', $index + 1)); ?></span>
 				<?php if ($service['image']) : ?><img class="service-option__image" src="<?php echo esc_url($service['image']); ?>" alt="" loading="lazy"><?php endif; ?>
-				<span class="service-option__copy"><strong><?php echo esc_html($service['title']); ?></strong><span><?php echo esc_html($service['excerpt']); ?></span><a class="service-option__details-link" data-service-details href="#calculator-sheet-title" aria-haspopup="dialog" aria-label="<?php echo esc_attr('Explore details for '.$service['title']); ?>">Explore details <span aria-hidden="true">↗</span></a></span>
+				<span class="service-option__copy"><strong><?php echo esc_html($service['title']); ?></strong><span><?php echo esc_html($service['excerpt']); ?></span><a class="service-option__details-link" data-service-details data-service-url="<?php echo esc_url($service['url']); ?>" href="#calculator-sheet-title" aria-haspopup="dialog" aria-label="<?php echo esc_attr('Explore details for '.$service['title']); ?>">Explore details <span aria-hidden="true">↗</span></a></span>
 				<span class="service-option__price"><small class="dx-price-from">FROM</small> £<?php echo esc_html(number_format($service['price'], 0)); ?><?php if ($service['monthly']) : ?><small>/ month</small><?php endif; ?></span>
-				<span class="custom-radio"></span>
+				<span class="custom-checkbox service-choice-checkbox" aria-hidden="true"></span>
 			</label>
 			<div class="service-option__information" hidden><div class="service-option__content"><ul class="service-detail-list"><?php foreach (preg_split('/\r\n|\r|\n/', $service['features'] ?: $service['excerpt']) as $detail) : if (!trim($detail)) continue; ?><li><?php echo esc_html(trim($detail)); ?></li><?php endforeach; ?></ul></div></div>
 		</div>
@@ -420,7 +420,7 @@
 
     <dialog class="calculator-sheet" data-calculator-restart-dialog aria-labelledby="calculator-restart-title">
         <h2 id="calculator-restart-title">Start again?</h2>
-        <p>This clears your current calculator selections.</p>
+        <p>This clears all calculator answers, selected services and project groupings, then returns you to the first step.</p>
         <button type="button" data-keep-configuration autofocus>Keep selections</button>
         <button type="button" data-clear-configuration>Start again</button>
     </dialog>

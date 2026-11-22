@@ -43,6 +43,9 @@ get_header();
 				</div>
 			</div>
 		</section>
+        <div class="dxb-video-interlude" aria-hidden="true">
+            <img src="<?php echo esc_url(get_template_directory_uri().'/assets/img/buses-video-poster-supplied.webp'); ?>" alt="" loading="lazy" decoding="async">
+        </div>
         <section id="bus-diary" class="dxb-section" aria-labelledby="diary-heading">
             <header class="dxb-section-heading"><div><p class="dxb-eyebrow">From the bus diary</p><h2 id="diary-heading">The journey is the story.</h2></div><a href="#dxb-journeys">All journeys <span aria-hidden="true">↗</span></a></header>
             <?php if($featured): ?>

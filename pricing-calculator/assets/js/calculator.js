@@ -12,6 +12,8 @@
 			nativeOpen();
 			if (!reduced()) {
 				dialog.animate([{opacity:0, transform:'translateY(16px)'},{opacity:1, transform:'translateY(0)'}], {duration:220, easing:'cubic-bezier(.22,1,.36,1)'});
+				const art = dialog.querySelector('.calculator-sheet__art');
+				art?.animate([{opacity:0,scale:'1.035'},{opacity:.65,scale:'1'}],{duration:1000,easing:'cubic-bezier(.22,1,.36,1)',fill:'backwards'});
 				dialog.querySelectorAll('.service-detail-list li').forEach((line, index) => {
 					line.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'translateY(0)'}], {duration:280, delay:70 + index * 65, fill:'backwards', easing:'cubic-bezier(.22,1,.36,1)'});
 				});
@@ -68,6 +70,7 @@
 	   STATE + PRICING
 	========================== */
 
+	let multiSummary = null;
 	const state = {
 		service: null,
         payment_plan: 'full',
@@ -89,6 +92,7 @@
 		total: 0,
 	};
 
+	const emptyState = JSON.parse(JSON.stringify(state));
 	const prices = DX_PRICING?.prices || {};
 
 	const priceMaps = {
@@ -292,26 +296,20 @@
 	const priceAnimations = new WeakMap();
 	const fadeUpdatePrice = (el, value) => {
 		if (!el) return;
-		const previous = priceAnimations.get(el);
-		const monthly = el.matches('.price') && state.service === 'retainer';
-		if (previous?.target === value && previous.monthly === monthly) return;
-		if (previous?.frame) cancelAnimationFrame(previous.frame);
-		const motion = {value: previous?.value ?? value, target: value, monthly, frame: null};
-		priceAnimations.set(el, motion);
-		const render = amount => {
-			motion.value = amount;
-			el.textContent = el.matches('.dx-photo-price') ? `£${Number(amount.toFixed(2))}` : formatPrice(amount);
-			if (monthly) { const suffix = document.createElement('span'); suffix.className = 'price-suffix'; suffix.textContent = ' / MONTH'; el.append(suffix); }
+		const previous=priceAnimations.get(el),monthly=el.matches('.price')&&state.service==='retainer';
+		if(previous?.target===value&&previous.monthly===monthly)return;
+		previous?.animation?.cancel();
+		const motion={target:value,monthly,animation:null};priceAnimations.set(el,motion);
+		const paint=()=>{
+			if(priceAnimations.get(el)!==motion)return;
+			const amount=formatPrice(value),match=amount.match(/^(.*)(\.\d{2})$/);
+			el.replaceChildren(document.createTextNode(match?match[1]:amount));
+			if(match){const decimal=document.createElement('sub');decimal.className='price-decimal';decimal.textContent=match[2];el.append(decimal);}
+			if(monthly){const suffix=document.createElement('span');suffix.className='price-suffix';suffix.textContent=' / MONTH';el.append(suffix);}
 		};
-		if (!previous || matchMedia('(prefers-reduced-motion: reduce)').matches) { render(value); return; }
-		const start = motion.value, started = performance.now();
-		const tick = now => {
-			const progress = Math.min(1, (now - started) / 280);
-			render(start + (value - start) * (1 - Math.pow(1 - progress, 3)));
-			if (progress < 1) motion.frame = requestAnimationFrame(tick);
-			else motion.frame = null;
-		};
-		motion.frame = requestAnimationFrame(tick);
+		if(!previous||matchMedia('(prefers-reduced-motion: reduce)').matches){paint();return;}
+		motion.animation=el.animate([{opacity:1,filter:'blur(0px)'},{opacity:0,filter:'blur(3px)'}],{duration:140,easing:'ease-in',fill:'forwards'});
+		motion.animation.finished.then(()=>{if(priceAnimations.get(el)!==motion)return;paint();motion.animation.cancel();motion.animation=el.animate([{opacity:0,filter:'blur(3px)',translate:'0 3px'},{opacity:1,filter:'blur(0px)',translate:'0 0'}],{duration:320,easing:'cubic-bezier(.22,1,.36,1)'});}).catch(()=>{});
 	};
 
 	const isSummaryStep = (stepKey) => stepKey === '7';
@@ -625,8 +623,11 @@
 		updateSummaryCopy();
 		try {
 		 const summary = [...breakdownEls[0].querySelectorAll('li')].map(el => [...el.querySelectorAll('.summary-label, .summary-value')].map(part => part.textContent).join(' ').trim().replace(/\s+/g, ' '));
+		 if ((state.service_category === 'digital' && state.service) || (state.service_category === 'photography' && state.photo_type)) {
 		 sessionStorage.setItem('dxndre-calculator-handoff', JSON.stringify({service:state.service,total:state.total,monthly:state.service==='retainer',reference:invoiceNumber,name:state.client_name,company:state.client_company,timeline:state.timeline,summary}));
+		 } else sessionStorage.removeItem('dxndre-calculator-handoff');
 		} catch (_) {}
+		multiSummary?.();
 	};
 
  const paymentDialog=calculator.querySelector('.dx-payment-dialog');
@@ -789,6 +790,7 @@
 		}
 
 		if (isSummaryStep(getCurrentStepKey())) {
+			if(state.service_category === 'digital') nextBtn.textContent = 'Save service and continue';
 			finalizeQuote();
 		}
 	};
@@ -816,7 +818,7 @@
 
 		const res = await requestEstimate({
 			action: 'dx_finalize_quote',
-			state: JSON.stringify(state),
+			state: JSON.stringify(exportEstimateState()),
 			estimate_reference: invoiceNumber,
 			estimate_token: estimateToken,
 		});
@@ -850,6 +852,7 @@
 		if (meta) meta.textContent = `Estimate reference: ${invoiceNumber}`;
 		if (copyBtn) copyBtn.disabled = false;
 		try { const handoff=JSON.parse(sessionStorage.getItem('dxndre-calculator-handoff')||'{}');handoff.reference=invoiceNumber;sessionStorage.setItem('dxndre-calculator-handoff',JSON.stringify(handoff)); } catch (_) {}
+		saveConfiguration();
 		return true;
 	};
 
@@ -898,6 +901,7 @@
 		});
 		calculator.querySelectorAll('input[name="service"]').forEach((input) => {
 			input.addEventListener('change', () => {
+				if (!hydrating) { changeServices(); return; }
 				state.service = input.value;
 
 				const incompatible = state.service === 'retainer'
@@ -1016,12 +1020,19 @@
 			return;
 		}
 		if (['fitness','photography'].includes(getCurrentStepKey())) return;
+		if (getCurrentStepKey() === '1' && state.service_category === 'digital') { beginServices(); return; }
 		if (currentStepIndex < activeFlow.length - 1) {
-			goToStepIndex(currentStepIndex + 1);
+			let next = currentStepIndex + 1;
+			while (next < activeFlow.length - 1 && reusedSteps.has(activeFlow[next]) && isStepValid(activeFlow[next])) next++;
+			goToStepIndex(next);
 			return;
 		}
 
-		finalizeQuote().then(() => { if (invoiceUrl) window.location.href = invoiceUrl; });
+		nextBtn.disabled = true;
+		finalizeQuote().then(() => {
+			if (finalized && state.service_category === 'digital') finishService();
+			else if (finalized && invoiceUrl) window.location.href = invoiceUrl;
+		}).finally(() => { nextBtn.disabled = false; });
 	});
 
 	prevBtn.addEventListener('click', () => {
@@ -1101,7 +1112,7 @@
 		await finalizeQuote();
 		if (!finalized) return;
 		try {
-			const response = await requestEstimate({ action: 'dx_generate_quote_pdf', state: JSON.stringify(state) });
+			const response = await requestEstimate({ action: 'dx_generate_quote_pdf', state: JSON.stringify(exportEstimateState()) });
 			if (!response.ok || !response.headers.get('Content-Type')?.includes('application/pdf')) {
 				const error = await response.json().catch(() => null);
 				throw new Error(error?.data?.message || 'The estimate PDF could not be downloaded. Please try again.');
@@ -1355,7 +1366,22 @@
 	const sheet = calculator.querySelector('[data-calculator-sheet]');
 	const sheetTitle = sheet.querySelector('h2');
 	const sheetContent = sheet.querySelector('[data-sheet-content]');
-	const showSheet = (title, content) => {
+	const showSheet = (title, content, image = null) => {
+		sheet.querySelector('.calculator-sheet__art')?.remove();
+		sheet.querySelector('.calculator-sheet__eyebrow')?.remove();
+		sheet.classList.toggle('calculator-sheet--service', Boolean(image));
+		if (image) {
+			const art = image.cloneNode();
+			art.className = 'calculator-sheet__art';
+			art.alt = '';
+			art.loading = 'eager';
+			art.setAttribute('aria-hidden', 'true');
+			sheet.prepend(art);
+			const eyebrow = document.createElement('p');
+			eyebrow.className = 'dx-eyebrow calculator-sheet__eyebrow';
+			eyebrow.textContent = 'Digital services / Find your fit';
+			sheet.querySelector('.calculator-sheet__header').before(eyebrow);
+		}
 		sheetTitle.textContent = title;
 		sheetContent.replaceChildren(content);
 		sheet.showModal();
@@ -1380,7 +1406,19 @@
 			event.preventDefault();
 			event.stopPropagation();
 			const option = link.closest('.service-option');
-			showSheet(option.querySelector('input').dataset.label, option.querySelector('.service-option__content').cloneNode(true));
+			const content = option.querySelector('.service-option__content').cloneNode(true);
+			const url = new URL(link.dataset.serviceUrl, location.href);
+			url.searchParams.set('from-calculator', '1');
+			const cta = document.createElement('a');
+			cta.className = 'dx-cta calculator-sheet__service-link';
+			cta.href = url.href;
+			cta.target = '_blank';
+			// Retain the same-origin opener so the return action can restore this exact tab.
+			cta.rel = 'opener';
+			cta.textContent = 'Explore this service ↗';
+			cta.setAttribute('aria-label', 'Explore ' + option.querySelector('input').dataset.label + ' (opens in a new tab)');
+			content.append(cta);
+			showSheet(option.querySelector('input').dataset.label, content, option.querySelector('.service-option__image'));
 		});
 	});
 	const detailAnimations=new WeakMap();
@@ -1444,18 +1482,18 @@
 	const editor=calculator.querySelector('.personalisation-editor');
 	calculator.querySelector('[data-edit-personalisation]')?.addEventListener('click',()=>{editor.hidden=false;editor.querySelector('[data-edit-name]').value=state.client_name;editor.querySelector('[data-edit-company]').value=state.client_company;editor.querySelector('input').focus();});
 	calculator.querySelector('[data-close-personalisation]')?.addEventListener('click',()=>{editor.hidden=true;calculator.querySelector('[data-edit-personalisation]').focus();});
-	calculator.querySelector('[data-save-personalisation]')?.addEventListener('click',()=>{state.client_name=editor.querySelector('[data-edit-name]').value.trim();state.client_company=editor.querySelector('[data-edit-company]').value.trim();calculator.querySelector('[name="client_name"]').value=state.client_name;calculator.querySelector('[name="client_company"]').value=state.client_company;editor.hidden=true;resetFinalizedQuote();updateSummary();finalizeQuote();calculator.querySelector('[data-edit-personalisation]').focus();});
+	calculator.querySelector('[data-save-personalisation]')?.addEventListener('click',()=>{state.client_name=editor.querySelector('[data-edit-name]').value.trim();state.client_company=editor.querySelector('[data-edit-company]').value.trim();calculator.querySelector('[name="client_name"]').value=state.client_name;calculator.querySelector('[name="client_company"]').value=state.client_company;editor.hidden=true;resetFinalizedQuote();updateSummary();saveConfiguration();finalizeQuote();calculator.querySelector('[data-edit-personalisation]').focus();});
 	const storageKey = 'dxndre-calculator-configuration-v1';
 	const basketParams = new URL(location.href).searchParams;
-	const basketSlug = basketParams.get('basket_service');
+	let basketSlug = basketParams.get('basket_service');
 	const basketKeys = {'wordpress-development':'wp_development','one-time-fixes':'one_off'};
 	const serviceKey = slug => basketKeys[slug] || slug;
 	const configurationKey = slug => storageKey + ':' + slug;
 	let hydrating = true;
-	const savedFields = ['service_category','photo_type','service','scope','type','timeline','features','extras','retainer_level','retainer_areas','retainer_turnaround','retainer_commitment','retainer_addons','payment_plan'];
+	const savedFields = ['service_category','photo_type','service','scope','type','timeline','features','extras','retainer_level','retainer_areas','retainer_turnaround','retainer_commitment','retainer_addons','payment_plan','client_name','client_company'];
 	const saveConfiguration = () => {
 		try {
-			if (hydrating || !state.service_category) return;
+			if (hydrating || !state.service_category || getCurrentStepKey() === '1') return;
 			const fields = Object.fromEntries(savedFields.map(key => [key, state[key]]));
 			const step = getCurrentStepKey();
 			const slug = state.service_category === 'photography' ? 'photography'
@@ -1463,17 +1501,278 @@
 			const previous = slug && JSON.parse(sessionStorage.getItem(configurationKey(slug)));
 			const finalStep = activeFlow[activeFlow.length - 1];
 			const valid = activeFlow.slice(0, -1).every(isStepValid);
-			const configured = valid && (step === finalStep || previous?.configured === true);
-			const snapshot = {fields, step, configured, express:calculator.querySelector('[data-photo-express]').checked, video:calculator.querySelector('[data-photo-video]').checked};
+			const configured = valid && finalized && (step === finalStep || previous?.configured === true);
+			const snapshot = {fields, step, configured, total:state.total, project:projectFor(slug), reused:previous?.reused || [], reference:invoiceNumber, token:estimateToken, url:invoiceUrl, brief:JSON.parse(sessionStorage.getItem('dxndre-calculator-handoff') || '{}').summary || [], express:calculator.querySelector('[data-photo-express]').checked, video:calculator.querySelector('[data-photo-video]').checked};
 			sessionStorage.setItem(storageKey, JSON.stringify(snapshot));
 			if (slug && (state.service_category === 'digital' || state.service_category === 'photography')) {
 				const group = state.service_category === 'photography' ? 'photo_type' : state.service === 'retainer' ? 'retainer_level' : 'scope';
 				snapshot.summary = state[group] ? getLabelText(group, state[group]) : '';
 				sessionStorage.setItem(configurationKey(slug), JSON.stringify(snapshot));
+				if (state.service_category === 'digital' && state.service !== 'retainer') {
+					for (const item of digitalBasket()) {
+						if(item.slug===slug || item.slug==='retainer')continue;
+						const sibling=read(configurationKey(item.slug),{});
+						if(!sibling.fields || sibling.project!==snapshot.project)continue;
+						let changed=false;
+						for(const key of ['scope','type','timeline']) if(previous?.fields?.[key] && previous.fields[key]!==fields[key] && fields[key]) { sibling.fields[key]=fields[key]; sibling.reused=[...new Set([...(sibling.reused||[]),key])]; changed=true; }
+						if(changed){sibling.total=serviceEstimate(item.slug,sibling.fields);sibling.configured=false;sessionStorage.setItem(configurationKey(item.slug),JSON.stringify(sibling));}
+					}
+				}
 				document.dispatchEvent(new Event('dx-calculator-configuration'));
 			}
 		} catch (_) {}
 	};
+
+	const reusedSteps = new Set();
+	const slugFor = key => Object.keys(basketKeys).find(slug => basketKeys[slug] === key) || key;
+	const read = (key, fallback) => { try { return JSON.parse(sessionStorage.getItem(key)) || fallback; } catch { return fallback; } };
+	const projectKey = 'dx-calculator-projects-v1';
+	let projectData = read(projectKey, {mode:'same', groups:{}, accepted:''});
+	const serviceControls = [...calculator.querySelectorAll('[name="service"]')];
+	const titleFor = slug => serviceControls.find(input => input.value === serviceKey(slug))?.dataset.label || slug;
+	const basket = () => { try { return JSON.parse(localStorage.getItem('dx-service-basket')) || []; } catch { return []; } };
+	const digitalBasket = () => basket().filter(item => serviceControls.some(input => input.value === serviceKey(item.slug)));
+	const projectFor = slug => {
+		if(projectData.mode==='same')return 'Project 1';
+		projectData.defaults ||= {};
+		let next=Math.max(0,...Object.values(projectData.defaults).map(name=>Number(name.match(/^Project (\d+)$/)?.[1])||0));
+		let changed=false;for(const item of digitalBasket())if(!projectData.defaults[item.slug]){projectData.defaults[item.slug]='Project '+(++next);changed=true;}
+		if(changed)sessionStorage.setItem(projectKey,JSON.stringify(projectData));
+		return (projectData.groups[slug]||'').trim()||projectData.defaults[slug]||'Project 1';
+	};
+	const multiMoney = value => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(value);
+	const panel = document.createElement('div');
+	panel.className = 'calculator-projects';
+	stepLookup['1'].append(panel);
+	const banner = document.createElement('p');
+	banner.className = 'calculator-service-context'; banner.setAttribute('role','status');
+	calculator.querySelector('.calculator-nav').before(banner);
+	const saveProjects = () => {
+		sessionStorage.setItem(projectKey, JSON.stringify(projectData));
+		for(const item of digitalBasket()){
+			const saved=read(configurationKey(item.slug),{}),project=projectFor(item.slug);
+			if(!saved.fields || saved.project===project)continue;
+			for(const field of saved.reused||[])delete saved.fields[field];
+			saved.reused=[];saved.project=project;saved.configured=false;saved.total=serviceEstimate(item.slug,saved.fields);
+			sessionStorage.setItem(configurationKey(item.slug),JSON.stringify(saved));
+		}
+		document.dispatchEvent(new Event('dx-calculator-configuration'));
+	};
+	const syncBasket = items => {
+		localStorage.setItem('dx-service-basket', JSON.stringify(items));
+		document.dispatchEvent(new Event('dx-service-basket-change'));
+	};
+
+	function exportEstimateState(){
+		const payload=JSON.parse(JSON.stringify(state)),items=digitalBasket();
+		if(state.service_category!=='digital'||items.length<2)return payload;
+		payload.service_estimates=items.map(item=>{
+			const saved=read(configurationKey(item.slug),{}),current=serviceKey(item.slug)===state.service;
+			const fields=JSON.parse(JSON.stringify(current?state:saved.fields||{service_category:'digital',service:serviceKey(item.slug)}));
+			delete fields.service_estimates;
+			return {project:projectFor(item.slug),configured:current||saved.configured===true,state:fields};
+		});
+		return payload;
+	}
+	function serviceEstimate(slug, fields) {
+		const key=serviceKey(slug);
+		if(key==='retainer') {
+			const c=retainerConfig, tierKey=fields.retainer_level||'essentials', tier=c.tiers[tierKey], index=Object.keys(c.tiers).indexOf(tierKey);
+			let subtotal=tier.price;
+			for(const area of fields.retainer_areas||[])subtotal+=c.areas[area]?.prices[index]||0;
+			subtotal+=c.turnaround[fields.retainer_turnaround||'standard'].price;
+			for(const addon of fields.retainer_addons||[])subtotal+=c.addons[addon]?.price||0;
+			return money(subtotal*c.commitments[fields.retainer_commitment||'3_months'].multiplier);
+		}
+		let total=0;
+		const config=summaryFlowSteps[key==='design'?'design':'default'];
+		for(const cfg of config){
+			const values=cfg.type==='checkbox' ? fields[cfg.key]||[] : fields[cfg.key] ? [fields[cfg.key]] : [];
+			for(const value of values)total+=key==='one_off' && ['nonprofit','no_rush'].includes(value) ? -5 : Number(cfg.prices?.[value])||0;
+		}
+		return Math.max(0,money(total));
+	}
+	const summaryExpanded=new Map();let summaryAccordionId=0;
+	multiSummary = () => {
+		if(state.service_category!=='digital')return;
+		const items=digitalBasket(), selecting=getCurrentStepKey()==='1';
+		if(!items.length){breakdownEls.forEach(list=>list.replaceChildren());totalEls.forEach(el=>{fadeUpdatePrice(el,0);});calculator.querySelectorAll('[data-multi-monthly],[data-multi-price-note]').forEach(el=>el.hidden=true);return;}
+		let oneOff=0,monthly=0;
+		const entries=items.map(item=>{
+			const saved=read(configurationKey(item.slug),{});
+			const current=!selecting && serviceKey(item.slug)===state.service;
+			const fields=current ? state : saved.fields||{service:serviceKey(item.slug)};
+			const amount=current ? state.total : serviceEstimate(item.slug,fields);
+			if(item.slug==='retainer')monthly+=amount;else oneOff+=amount;
+			return {...item,saved,current,amount};
+		});
+		breakdownEls.forEach(list=>{
+			if(items.length===1&&!selecting)return;
+			const activeRows=[...list.children].filter(row=>!row.dataset.multiService);
+			list.replaceChildren();
+			for(const entry of entries){
+				const group=document.createElement('li');group.dataset.multiService=entry.slug;group.className='multi-service-group';
+				const header=addText(group,'div','','multi-service-heading');
+				const toggle=addText(header,'button','','multi-service-toggle');toggle.type='button';addText(toggle,'strong',titleFor(entry.slug));addText(toggle,'span','⌄','multi-service-chevron');
+				addText(header,'span',multiMoney(entry.amount)+(entry.slug==='retainer'?' / month':''),'multi-service-subtotal');
+				const edit=addAction(header,selecting?'Configure':'Edit',()=>{summaryExpanded.set(entry.slug,true);openService(entry.slug);});edit.setAttribute('aria-label','Configure '+titleFor(entry.slug));
+				addText(group,'p',projectFor(entry.slug)+(entry.saved.configured||entry.current?'':' · indicative estimate'),'multi-service-project');
+				const content=addText(group,'div','','multi-service-content');content.id='service-summary-'+(++summaryAccordionId);toggle.setAttribute('aria-controls',content.id);
+				let expanded=summaryExpanded.get(entry.slug)===true,motion=null,version=0;toggle.setAttribute('aria-expanded',String(expanded));content.hidden=!expanded;content.inert=!expanded;
+				toggle.addEventListener('click',()=>{
+					const revision=++version,start=content.hidden?0:content.getBoundingClientRect().height;motion?.cancel();expanded=!expanded;summaryExpanded.set(entry.slug,expanded);toggle.setAttribute('aria-expanded',String(expanded));content.hidden=false;content.inert=!expanded;
+					const end=expanded?content.scrollHeight:0;
+					if(matchMedia('(prefers-reduced-motion: reduce)').matches){content.hidden=!expanded;return;}
+					motion=content.animate([{height:start+'px',opacity:expanded?.35:1},{height:end+'px',opacity:expanded?1:0}],{duration:320,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'});
+					motion.finished.then(()=>{if(revision!==version)return;content.hidden=!expanded;motion.cancel();motion=null;}).catch(()=>{});
+				});
+				const detail=addText(content,'ul','','multi-service-details');
+				if(entry.current)detail.append(...activeRows);
+				else{
+					const fields=entry.saved.fields||{service:serviceKey(entry.slug)};
+					const config=summaryFlowSteps[serviceKey(entry.slug)==='retainer'?'retainer':serviceKey(entry.slug)==='design'?'design':'default'];
+					for(const cfg of config){
+						const values=Array.isArray(fields[cfg.key])?fields[cfg.key]:fields[cfg.key]?[fields[cfg.key]]:[];
+						for(const value of values){const row=addText(detail,'li','');const input=calculator.querySelector(`input[name="${cfg.key}"][value="${value}"]`);addText(row,'span',input?.dataset.label||getLabelText(cfg.key,value),'summary-label');}
+					}
+					if(!detail.children.length)addText(detail,'li','Requirements not yet configured.');
+				}
+				list.append(group);
+			}
+		});
+		const payToday=calculator.querySelector('[data-pay-today]');if(payToday && items.length>1)payToday.textContent=titleFor(slugFor(state.service))+' ONLY · '+payToday.textContent;
+		const label=calculator.querySelector('.summary-price > p');label.textContent=monthly && !oneOff?'Your estimated monthly investment':'Your combined one-off estimate';
+		for(const el of totalEls){fadeUpdatePrice(el,oneOff||monthly);}
+		calculator.querySelector('.summary-price').dataset.monthly=String(!oneOff&&!!monthly);
+		let recurring=calculator.querySelector('[data-multi-monthly]');if(!recurring){recurring=document.createElement('p');recurring.dataset.multiMonthly='';calculator.querySelector('.summary-price').append(recurring);}
+		recurring.hidden=!monthly;recurring.textContent=oneOff?`Plus ${multiMoney(monthly)} / month for ongoing support`:'Per month for ongoing support';
+		let notice=calculator.querySelector('[data-multi-price-note]');if(!notice){notice=document.createElement('p');notice.dataset.multiPriceNote='';calculator.querySelector('.summary-price').append(notice);}
+		notice.hidden=false;
+		notice.textContent=items.some(item=>!read(configurationKey(item.slug),{}).configured)?'Indicative total. Configure each service to refine its requirements and price.':'All selected services included. Subject to confirming the brief.';
+	};
+	function developmentConflict(){const items=digitalBasket();return items.some(item=>item.slug==='wordpress-development')&&items.some(item=>item.slug==='development')&&projectFor('wordpress-development')&&projectFor('wordpress-development')===projectFor('development');}
+	function conflicts() {
+		const items = digitalBasket();
+		return items.filter(item => item.slug === 'design' || item.slug === 'comprehensive').flatMap(item =>
+			items.filter(other => ['development','wordpress-development'].includes(other.slug) && projectFor(other.slug) && projectFor(other.slug) === projectFor(item.slug))
+			.map(other => [item.slug, other.slug]));
+	}
+	function renderProjects() {
+		panel.replaceChildren();
+		const items = digitalBasket();
+		if(getCurrentStepKey()==='1')state.service=items[0] ? serviceKey(items[0].slug) : null;
+		serviceControls.forEach(input => { input.checked = items.some(item => serviceKey(item.slug) === input.value); });
+		if (items.length > 1) {
+			const heading = document.createElement('h3'); heading.textContent = 'Are these services for the same project?'; panel.append(heading);
+			for (const [value, text] of [['same','One project — reuse shared answers'],['different','Several projects — assign each service below']]) {
+				const label = document.createElement('label'); const input = document.createElement('input'); input.type='radio'; input.name='project_grouping'; input.value=value; input.checked=projectData.mode===value;
+				input.addEventListener('change',()=>{ projectData.mode=value; projectData.accepted=''; saveProjects(); renderProjects(); });
+				label.append(input,document.createTextNode(text)); panel.append(label);
+			}
+			if(projectData.mode==='different') items.forEach(item=>{
+				const label=document.createElement('label'); label.textContent=titleFor(item.slug)+' — Project Name';
+				const input=document.createElement('input'); input.type='text'; input.maxLength=100; input.value=projectFor(item.slug); input.placeholder=projectData.defaults?.[item.slug]||'Project Name';
+				input.addEventListener('change',()=>{projectData.groups[item.slug]=input.value.trim();projectData.accepted='';saveProjects();renderProjects();});label.append(input); panel.append(label);
+			});
+		}
+		if(developmentConflict()){
+			const box=document.createElement('div');box.className='calculator-package-advice calculator-development-choice';box.setAttribute('role','group');
+			const heading=document.createElement('h3');heading.textContent='Which development approach suits this project?';box.append(heading);
+			const copy=document.createElement('p');copy.textContent='WordPress Development and Custom Web Development are alternative ways to build the same project. Choose one approach, or assign them to separate projects above.';box.append(copy);
+			for(const [slug,label] of [['wordpress-development','Choose WordPress Development'],['development','Choose Custom Web Development']]){
+				const button=document.createElement('button');button.type='button';button.textContent=label;button.addEventListener('click',()=>{const remove=slug==='development'?'wordpress-development':'development';syncBasket(basket().filter(item=>item.slug!==remove));projectData.accepted='';saveProjects();renderProjects();updateSummary();validateStep();});box.append(button);
+			}panel.append(box);
+		}
+		const pairs=conflicts(); const signature=JSON.stringify(pairs.map(pair=>[...pair,projectFor(pair[0])]));
+		if(pairs.length && projectData.accepted!==signature){
+			const box=document.createElement('div');box.className='calculator-package-advice';
+			const copy=document.createElement('p');copy.textContent='Design and Development for one project work best as a Comprehensive package. It combines both stages and avoids overlapping scope. For separate projects, assign different project names above.';box.append(copy);
+			const combine=document.createElement('button');combine.type='button';combine.textContent='Choose Comprehensive';combine.addEventListener('click',()=>{
+				let items=basket();for(const pair of pairs){const group=projectFor(pair[0]);const source=read(configurationKey(pair[1]),read(configurationKey(pair[0]),{}));const existing=read(configurationKey('comprehensive'),{});if(!existing.fields && source.fields){const fields={service_category:'digital',service:'comprehensive'};for(const key of ['scope','type','timeline','client_name','client_company','features','extras'])if(source.fields[key])fields[key]=source.fields[key];sessionStorage.setItem(configurationKey('comprehensive'),JSON.stringify({fields,project:group,step:'2',configured:false,reused:['scope','type','timeline'].filter(key=>fields[key])}));}items=items.filter(item=>!pair.includes(item.slug));if(!items.some(item=>item.slug==='comprehensive'))items.push({slug:'comprehensive',title:titleFor('comprehensive')});projectData.groups.comprehensive=group;}
+				projectData.accepted='';saveProjects();syncBasket(items);renderProjects();state.service=digitalBasket()[0] ? serviceKey(digitalBasket()[0].slug) : null;updateSummary();validateStep();syncActiveLabels();
+			});
+			const keep=document.createElement('button');keep.type='button';keep.textContent='Keep separate service estimates';keep.addEventListener('click',()=>{projectData.accepted=signature;saveProjects();renderProjects();});box.append(combine,keep);panel.append(box);
+		}
+		syncActiveLabels();
+		multiSummary?.();
+	}
+	function changeServices() {
+		resetFinalizedQuote();
+		const selected=serviceControls.filter(input=>input.checked).map(input=>({slug:slugFor(input.value),title:input.dataset.label}));
+		syncBasket([...basket().filter(item=>!serviceControls.some(input=>slugFor(input.value)===item.slug)),...selected]);
+		state.service=selected[0] ? serviceKey(selected[0].slug) : null;
+		projectData.accepted='';saveProjects();renderProjects();updateSummary();validateStep();
+	}
+	function shakeProjectAdvice(){const box=panel.querySelector('.calculator-development-choice, .calculator-package-advice')||panel;box.getAnimations().forEach(animation=>animation.cancel());if(!matchMedia('(prefers-reduced-motion: reduce)').matches)box.animate([{translate:'0'},{translate:'-9px'},{translate:'8px'},{translate:'-6px'},{translate:'5px'},{translate:'-2px'},{translate:'0'}],{duration:500,easing:'ease-in-out'});box.scrollIntoView({block:'center',behavior:'smooth'});box.querySelector('button')?.focus({preventScroll:true});}
+	function beginServices() {
+		const items=digitalBasket();
+		if(!items.length)return;
+		if(projectData.mode==='different' && items.some(item=>!projectFor(item.slug))){showEstimateNotice('Give each service a project name. Use the same name for services belonging to the same project.');return;}
+		if(developmentConflict()){shakeProjectAdvice();return;}
+		const pairs=conflicts();const signature=JSON.stringify(pairs.map(pair=>[...pair,projectFor(pair[0])]));
+		if(pairs.length && projectData.accepted!==signature){shakeProjectAdvice();return;}
+		const item=items.find(item=>!read(configurationKey(item.slug),{}).configured)||items[0];
+		openService(item.slug);
+	}
+	function openService(slug) {
+		saveConfiguration();
+		const own=read(configurationKey(slug),{});let fields=own.fields||{service_category:'digital',service:serviceKey(slug)};
+		for(const key of ['client_name','client_company'])if(!fields[key] && state[key])fields[key]=state[key];
+		const shared=serviceKey(slug)==='retainer' ? [] : ['scope','type','timeline'];const reused=own.reused||[];
+		if(own.project && own.project!==projectFor(slug)){ for(const key of reused) delete fields[key]; reused.length=0; own.configured=false; }
+		for(const item of digitalBasket()){
+			const source=read(configurationKey(item.slug),{});
+			for(const key of ['client_name','client_company'])if(!fields[key] && source.fields?.[key])fields[key]=source.fields[key];
+			if(item.slug===slug || source.project!==projectFor(slug) || !source.project)continue;
+			for(const key of shared)if(!fields[key] && source.fields?.[key]){fields[key]=source.fields[key];reused.push(key);}
+			for(const key of ['client_name','client_company'])if(!fields[key] && source.fields?.[key])fields[key]=source.fields[key];
+		}
+		sessionStorage.setItem(configurationKey(slug),JSON.stringify({...own,fields,step:own.step && own.step!=='category' && own.step!=='1' ? own.step : serviceKey(slug)==='retainer' ? 'retainer_level' : '2',project:projectFor(slug),reused}));
+		const url=new URL(location.href);url.searchParams.set('basket_service',slug);url.searchParams.delete('basket_review');
+		// Switch the active service in the existing calculator, retaining its saved configuration.
+		basketSlug=slug;history.replaceState(history.state,'',url.href);hydrating=true;
+		resetFinalizedQuote();Object.keys(state).forEach(key=>delete state[key]);Object.assign(state,JSON.parse(JSON.stringify(emptyState)));
+		reusedSteps.clear();const index=restoreConfiguration();
+		(read(configurationKey(slug),{}).reused||[]).forEach(key=>reusedSteps.add(({scope:'2',type:'3',timeline:'5'})[key]));
+		hydrating=false;renderProjects();
+		banner.textContent=titleFor(slug)+' · '+projectFor(slug)+(reusedSteps.size?' — shared project answers restored; edit them in the summary if needed.':' — configure this service, then continue to the next.');
+		let next=index;while(next<activeFlow.length-1&&reusedSteps.has(activeFlow[next])&&isStepValid(activeFlow[next]))next++;
+		goToStepIndex(next);syncActiveLabels();saveConfiguration();
+		const review=document.querySelector('.dx-multi-review[open]');if(review)review.close();
+	}
+	function finishService() {
+		if(developmentConflict()){
+			const box=document.createElement('div');box.className='calculator-package-advice calculator-development-choice';box.setAttribute('role','group');
+			const heading=document.createElement('h3');heading.textContent='Which development approach suits this project?';box.append(heading);
+			const copy=document.createElement('p');copy.textContent='WordPress Development and Custom Web Development are alternative ways to build the same project. Choose one approach, or assign them to separate projects above.';box.append(copy);
+			for(const [slug,label] of [['wordpress-development','Choose WordPress Development'],['development','Choose Custom Web Development']]){
+				const button=document.createElement('button');button.type='button';button.textContent=label;button.addEventListener('click',()=>{const remove=slug==='development'?'wordpress-development':'development';syncBasket(basket().filter(item=>item.slug!==remove));projectData.accepted='';saveProjects();renderProjects();updateSummary();validateStep();});box.append(button);
+			}panel.append(box);
+		}
+		const pairs=conflicts(); const signature=JSON.stringify(pairs.map(pair=>[...pair,projectFor(pair[0])]));
+		if (pairs.length && projectData.accepted!==signature) { renderProjects(); goToStepIndex(activeFlow.indexOf('1')); return; }
+		saveConfiguration();
+		const items=digitalBasket();const next=items.find(item=>!read(configurationKey(item.slug),{}).configured);
+		if(next){openService(next.slug);return;}
+		const dialog=document.createElement('dialog');dialog.className='dx-multi-review';
+		const heading=document.createElement('h2');heading.textContent='Review your services';dialog.append(heading);
+		let oneOff=0,monthly=0;const summary=[];const services=[];
+		items.forEach(item=>{
+			const saved=read(configurationKey(item.slug),{});const recurring=item.slug==='retainer';const total=Number(saved.total)||0;if(recurring)monthly+=total;else oneOff+=total;
+			const row=document.createElement('div');const title=document.createElement('h3');title.textContent=titleFor(item.slug);const detail=document.createElement('p');detail.textContent=`${saved.project} · ${multiMoney(total)}${recurring?' / month':''}`;
+			const edit=document.createElement('button');edit.type='button';edit.textContent='Edit requirements';edit.addEventListener('click',()=>openService(item.slug));row.append(title,detail,edit);dialog.append(row);
+			summary.push(`${saved.project} — ${titleFor(item.slug)}: ${multiMoney(total)}${recurring?' per month':''}`, ...(saved.brief||[]).map(line=>'  '+line),`Estimate reference: ${saved.reference||'Pending'}`);
+			services.push({service:serviceKey(item.slug),project:saved.project,total,monthly:recurring,reference:saved.reference});
+		});
+		const total=document.createElement('p');total.textContent=`One-off estimate: ${multiMoney(oneOff)}${monthly?' · Ongoing support: '+multiMoney(monthly)+' / month':''}. Subject to confirming your brief.`;dialog.append(total);
+		const proceed=document.createElement('button');proceed.type='button';proceed.textContent='Continue to project enquiry';proceed.addEventListener('click',()=>{
+			sessionStorage.setItem('dxndre-calculator-handoff',JSON.stringify({service:services.length===1?services[0].service:'multiple',services,total:oneOff,monthlyTotal:monthly,summary,name:state.client_name,company:state.client_company}));
+			location.href=new URL('/start-a-project/?from_calculator=1',location.origin).href;
+		});const close=document.createElement('button');close.type='button';close.textContent='Back to estimate';close.addEventListener('click',()=>dialog.close());dialog.append(proceed,close);dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
+	}
+	// Cart changes also update the calculator's selection step.
+	document.addEventListener('dx-service-basket-change',renderProjects);
+
 	const restoreConfiguration = () => {
 		try {
 			let saved = JSON.parse(sessionStorage.getItem(basketSlug ? configurationKey(basketSlug) : storageKey));
@@ -1484,10 +1783,13 @@
 				if (matches) saved = legacy;
 			}
 			if (!saved?.fields?.service_category) return 0;
+			invoiceNumber = saved.reference || ''; estimateToken = saved.token || ''; invoiceUrl = saved.url || '';
+			if (invoiceNumber) state.estimate_reference = invoiceNumber;
 			for (const key of savedFields) {
 				const value = saved.fields[key];
 				const inputs = [...calculator.querySelectorAll(`input[name="${key}"]`)];
 				inputs.forEach(input => { input.checked = Array.isArray(value) ? value.includes(input.value) : value === input.value; });
+				if (key === 'client_name' || key === 'client_company') { state[key] = typeof value === 'string' ? value : ''; inputs.forEach(input => input.value = state[key]); continue; }
 				const selected = inputs.filter(input => input.checked).map(input => input.value);
 				state[key] = Array.isArray(state[key]) ? selected : selected[0] ?? state[key];
 			}
@@ -1504,7 +1806,8 @@
 			return isSummaryStep(activeFlow[index]) ? index - 1 : index;
 		} catch (_) { return 0; }
 	};
-	calculator.addEventListener('change', saveConfiguration);
+	calculator.addEventListener('change',()=>queueMicrotask(saveConfiguration));
+	calculator.addEventListener('input',event=>{if(event.target.matches('[name=client_name],[name=client_company]'))queueMicrotask(()=>{updateSummary();saveConfiguration();});});
 	calculator.querySelector('[data-completed-steps]').addEventListener('change', event => {
 		if (event.target.value !== '') goToStepIndex(Number(event.target.value));
 	});
@@ -1515,11 +1818,17 @@
 	restart.querySelector('[data-keep-configuration]').addEventListener('click', closeRestart);
 	restart.querySelector('[data-clear-configuration]').addEventListener('click', () => {
 		try {
-			sessionStorage.removeItem(storageKey);
-			if (basketSlug) sessionStorage.removeItem(configurationKey(basketSlug));
+			// Reset the whole calculator journey, including every service's saved answers.
+			Object.keys(sessionStorage).filter(key => key === storageKey || key.startsWith(storageKey + ':')).forEach(key => sessionStorage.removeItem(key));
+			sessionStorage.removeItem(projectKey);
 			sessionStorage.removeItem('dxndre-calculator-handoff');
+			localStorage.removeItem('dx-service-basket');
 		} catch (_) {}
-		location.reload();
+		// A service link would immediately select it again on reload.
+		const url = new URL(location.href);
+		['basket_service', 'basket_review', 'basket_select'].forEach(key => url.searchParams.delete(key));
+		url.hash = '';
+		location.replace(url.href);
 	});
 	successEl?.classList.add('is-hidden');
 	bindInputs();
@@ -1539,17 +1848,27 @@
 		else if (saved) restoredIndex = Math.max(0, restoredIndex);
 		else restoredIndex = unanswered < 0 ? activeFlow.length - 1 : unanswered;
 	}
+	if(basketParams.has('basket_select')) { state.service_category='digital'; state.service=serviceKey(digitalBasket()[0]?.slug)||null; calculator.querySelector('[name=service_category][value=digital]').checked=true;applyActiveFlow();restoredIndex=activeFlow.indexOf('1'); }
 	updateSummary();
 	syncFeatureExclusivity();
 	hydrating = false;
+	if (basketSlug) {
+		const items=basket(); if (basketInput && !items.some(item=>item.slug===basketSlug)) syncBasket([...items,{slug:basketSlug,title:titleFor(basketSlug)}]);
+		const saved=read(configurationKey(basketSlug),{});
+		(saved.reused||[]).forEach(key=>reusedSteps.add(({scope:'2',type:'3',timeline:'5'})[key]));
+		banner.textContent=titleFor(basketSlug)+' · '+projectFor(basketSlug)+(reusedSteps.size ? ' — shared project answers restored; edit them in the summary if needed.' : ' — configure this service, then continue to the next.');
+	} else if (state.service && !digitalBasket().length) syncBasket([{slug:slugFor(state.service),title:titleFor(slugFor(state.service))}]);
+	renderProjects();
+	while (restoredIndex < activeFlow.length-1 && reusedSteps.has(activeFlow[restoredIndex]) && isStepValid(activeFlow[restoredIndex])) restoredIndex++;
 	goToStepIndex(restoredIndex);
 	initScrollableHint();
 	syncActiveLabels();
 	updateSummaryCopy();
 
 	const revealCalculator = () => {
+		if(calculator.dataset.entrancePlayed)return;calculator.dataset.entrancePlayed='true';
 		if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-		calculator.querySelectorAll('.calculator-progress-caption, .calculator-segments, .calculator-session > :not([hidden]), .calculator-step.is-active .step-title, .calculator-step.is-active .step-intro, .calculator-step.is-active .category-card, .calculator-step.is-active .calculator-intro-fields, .calculator-nav').forEach((element, index) => {
+		calculator.querySelectorAll('.calculator-progress-caption, .calculator-segments, .calculator-session > :not([hidden]), .calculator-step.is-active .step-title, .calculator-step.is-active .step-intro, .calculator-step.is-active .category-card, .calculator-step.is-active .calculator-intro-fields, .calculator-summary > :not([hidden]), .calculator-nav').forEach((element, index) => {
 			element.animate([{opacity:0, transform:'translateY(16px)'},{opacity:1, transform:'translateY(0)'}], {duration:600,delay:Math.min(index*55,440),fill:'backwards',easing:'cubic-bezier(.22,1,.36,1)'});
 		});
 	};
@@ -1562,12 +1881,14 @@
 		calculator.inert = true;
 		const started = performance.now();
 		splash.dataset.started = String(started);
-		Promise.all([new Promise(resolve=>setTimeout(resolve,3000)), document.fonts?.ready || Promise.resolve()]).then(async () => {
+		Promise.all([new Promise(resolve=>setTimeout(resolve,3000)), document.fonts?.ready || Promise.resolve(), window.dxPageReady || Promise.resolve()]).then(async () => {
+			// Begin the entrance while the opaque splash still covers the calculator.
+			// Starting after its fade exposed settled content, then hid it for a second entrance.
+			revealCalculator();
 			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) await splash.animate([{opacity:1},{opacity:0}],{duration:300,easing:'ease-out',fill:'forwards'}).finished.catch(()=>{});
 			splash.remove();
 			calculator.inert = false;
 			calculator.dataset.splashDuration = String(performance.now()-started);
-			revealCalculator();
 		});
 	} else revealCalculator();
 

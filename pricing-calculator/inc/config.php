@@ -61,7 +61,7 @@ function dx_calculator_services() {
 		if (!$features && preg_match_all('/<li\b[^>]*>(.*?)<\/li>/si', $post->post_content, $matches)) {
 			$features = implode("\n", array_map('wp_strip_all_tags', $matches[1]));
 		}
-		$items[] = ['key' => $key, 'title' => get_the_title($post), 'price' => (float) $raw, 'monthly' => $key === 'retainer', 'fixed' => (bool) $fixed, 'excerpt' => wp_strip_all_tags(get_the_excerpt($post)), 'image' => get_the_post_thumbnail_url($post, 'large'), 'features' => $features];
+		$items[] = ['key' => $key, 'title' => get_the_title($post), 'price' => (float) $raw, 'monthly' => $key === 'retainer', 'fixed' => (bool) $fixed, 'excerpt' => wp_strip_all_tags(get_the_excerpt($post)), 'url' => get_permalink($post), 'image' => get_the_post_thumbnail_url($post, 'large'), 'features' => $features];
 	}
 	$order = array_flip(['comprehensive', 'wp_development', 'development', 'design', 'one_off', 'retainer']);
 	usort($items, static function ($a, $b) use ($order) {

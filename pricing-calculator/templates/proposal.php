@@ -58,7 +58,7 @@ get_header(); ?>
 
 		<?php if (!isset($state['estimate_breakdown']) && !isset($state['retainer_estimate'])) : ?><p>This estimate was generated using earlier pricing. Individual item prices were not saved; the original estimate total is retained.</p><?php endif; ?>
 		<div class="total">
-			<strong><?= ($state['service'] ?? '') === 'retainer' ? 'Monthly estimate' : 'Total' ?> £<?= esc_html($total); ?><?= ($state['service'] ?? '') === 'retainer' ? ' / month' : '' ?></strong>
+			<?= dx_estimate_totals_html($state) ?>
 		</div>
 
 		<footer class="proposal-notes">
@@ -76,7 +76,7 @@ get_header(); ?>
 <div class="dx-estimate-next-grid"><div><h3>01 / Make it yours.</h3><p>We’ll discuss your scope, timings and priorities in an initial call. There is nothing to pay at this stage.</p><a class="dx-cta" href="https://calendly.com/dxndre" target="_blank" rel="noopener">Confirm scope & book a call ↗</a></div>
 <div><h3>02 / Review your final quotation.</h3><p><?= $is_final ? 'Your final quotation is ready. Review its scope and payment terms, then return to your client space to record your acceptance.' : 'After our call, I’ll issue your final quotation with the agreed scope and payment schedule. Review and accept it before any deposit or payment is required.'; ?></p><p class="dx-step-note">Your approval comes first.</p></div>
 <div><h3>03 / Your payment plan.</h3><p><?= esc_html(dx_payment_terms($state)) ?></p>
-<?php if(($state['service_category']??'')!=='photography' && ($state['service']??'')!=='retainer'): ?><form method="post"><?php wp_nonce_field('dx_plan_'.$invoice,'dx_plan_nonce'); ?><label for="estimate-plan">Choose a payment option</label><select id="estimate-plan" name="payment_plan"><?php foreach(['full'=>'Pay in full','three'=>'Pay in 3','six'=>'Pay in 6 · 5% on the full quote','custom'=>'Custom Instalment Plan · discuss on our call'] as $key=>$label){if($key==='six'&&(float)$quote->total<=600)continue;echo '<option value="'.esc_attr($key).'" '.selected($state['payment_plan']??'full',$key,false).'>'.esc_html($label).'</option>';} ?></select><button class="dx-cta" type="submit">Update payment preference ↗</button></form><?php endif; ?></div>
+<?php if(empty($state['service_estimates']) && ($state['service_category']??'')!=='photography' && ($state['service']??'')!=='retainer'): ?><form method="post"><?php wp_nonce_field('dx_plan_'.$invoice,'dx_plan_nonce'); ?><label for="estimate-plan">Choose a payment option</label><select id="estimate-plan" name="payment_plan"><?php foreach(['full'=>'Pay in full','three'=>'Pay in 3','six'=>'Pay in 6 · 5% on the full quote','custom'=>'Custom Instalment Plan · discuss on our call'] as $key=>$label){if($key==='six'&&(float)$quote->total<=600)continue;echo '<option value="'.esc_attr($key).'" '.selected($state['payment_plan']??'full',$key,false).'>'.esc_html($label).'</option>';} ?></select><button class="dx-cta" type="submit">Update payment preference ↗</button></form><?php endif; ?></div>
 <div><h3>04 / Keep a copy.</h3><p>Download a paper-friendly PDF of your estimate, including your selected payment terms.</p><a class="dx-cta" href="<?= esc_url(add_query_arg('pdf','1')) ?>">Download estimate PDF ↓</a></div></div></section>
 <script>
 (()=>{const b=document.querySelector('[data-proposal-theme]');if(!b)return;b.dataset.bound='true';b.addEventListener('click',()=>{const light=document.body.classList.toggle('is-light');b.textContent=light?'Dark mode':'Light mode';b.setAttribute('aria-pressed',String(light));});})();

@@ -35,10 +35,32 @@ function dx_save_quote($invoice, $state, $total) {
 }
 /** Validate recurring selections and calculate trusted totals from central pricing. */
 function dx_validate_estimate_state($state) {
+	if(isset($state['service_estimates'])){
+		if(!is_array($state['service_estimates'])||count($state['service_estimates'])<2||count($state['service_estimates'])>12)return new WP_Error('invalid_services','Choose valid services for this estimate.');
+		$services=[];$seen=[];$one_off=0;$monthly=0;$titles=[];
+		foreach(dx_calculator_services() as $service)$titles[$service['key']]=$service['title'];
+		foreach($state['service_estimates'] as $entry){
+			$child=$entry['state']??null;
+			if(!is_array($child)||!is_string($child['service']??null)||isset($child['service_estimates'])||!isset($titles[$child['service']??''])||isset($seen[$child['service']]))return new WP_Error('invalid_services','Invalid or duplicate estimate service.');
+			$seen[$child['service']]=true;
+			$configured=!empty($entry['configured']);
+			if($child['service']==='retainer'&&!$configured){
+				$child['retainer_level']=$child['retainer_level']??'essentials';$child['retainer_turnaround']=$child['retainer_turnaround']??'standard';$child['retainer_commitment']=$child['retainer_commitment']??'3_months';
+			}
+			$child=dx_validate_estimate_state($child);if(is_wp_error($child))return $child;
+			$recurring=$child['service']==='retainer';
+			if($recurring)$monthly+=(float)$child['total'];else $one_off+=(float)$child['total'];
+			$services[]=['title'=>$titles[$child['service']],'project'=>sanitize_text_field($entry['project']??''),'configured'=>$configured,'monthly'=>$recurring,'state'=>$child];
+		}
+		$state['service_estimates']=$services;$state['service']='multiple';$state['service_category']='digital';
+		$state['one_off_total']=round($one_off,2);$state['monthly_total']=round($monthly,2);$state['total']=$one_off>0?round($one_off,2):round($monthly,2);$state['estimate_breakdown']=[];
+		foreach(['client_name','client_company'] as $key)$state[$key]=sanitize_text_field($state[$key]??'');
+		return $state;
+	}
 	foreach (['client_name','client_company'] as $key) $state[$key] = sanitize_text_field($state[$key] ?? '');
 	if (($state['service'] ?? '') !== 'retainer') {
 		$state['estimate_breakdown'] = dx_estimate_selection_rows($state, true);
-		if (($state['service'] ?? '') === 'one_off') $state['total'] = max(0, array_sum(array_column($state['estimate_breakdown'], 'amount')));
+		if(($state['service_category']??'')!=='photography') $state['total'] = max(0, array_sum(array_column($state['estimate_breakdown'], 'amount')));
 		$state['payment_plan'] = dx_payment_schedule($state)['plan'];
 		return $state;
 	}
@@ -114,6 +136,17 @@ function dx_estimate_selection_rows($state, $capture_prices = false) {
 
 /** Preserve legacy totals without assigning today's prices to old selections. */
 function dx_estimate_breakdown_html($state, $columns = 3) {
+	if(!empty($state['service_estimates'])){
+		$html='';$span=$columns-1;
+		foreach($state['service_estimates'] as $entry){
+			$child=$entry['state'];$suffix=!empty($entry['monthly'])?' / month':'';
+			$html.='<tr class="estimate-service-heading" style="page-break-after:avoid;"><td colspan="'.$columns.'" style="padding-top:24px;font-weight:bold;text-align:left;">'.esc_html($entry['title']).(!empty($entry['project'])?' · '.esc_html($entry['project']):'').(empty($entry['configured'])?' · Indicative estimate':'').'</td></tr>';
+			$html.=dx_estimate_breakdown_html($child,$columns);
+			$html.='<tr class="estimate-service-subtotal"><td colspan="'.$span.'"><strong>Service subtotal · '.esc_html($entry['title']).'</strong></td><td align="right"><strong>£'.number_format((float)$child['total'],2).$suffix.'</strong></td></tr>';
+		}
+		return $html;
+	}
+
 	if (($state['service'] ?? '') === 'retainer' && isset($state['retainer_estimate']['rows'])) {
 		$span = $columns === 3 ? ' colspan="2"' : '';
 		return '<tr><td'.$span.'>Service: Retainer</td><td align="right">—</td></tr>'.dx_retainer_export_html($state, $columns);
@@ -136,7 +169,20 @@ function dx_payment_schedule($state) {
  $payments=array_fill(0,$count,intdiv($balance,$count));$payments[$count-1]+=$balance-array_sum($payments);
  return compact('plan','deposit','interest','balance','payments');
 }
+function dx_estimate_totals_html($state){
+ if(!empty($state['service_estimates'])){
+  $html='<strong>Combined one-off estimate £'.number_format((float)$state['one_off_total'],2).'</strong>';
+  if(!empty($state['monthly_total']))$html.='<br><strong>Ongoing support £'.number_format((float)$state['monthly_total'],2).' / month</strong>';
+  return $html;
+ }
+ return '<strong>'.(($state['service']??'')==='retainer'?'Monthly estimate':'Total').' £'.number_format((float)($state['total']??0),2).(($state['service']??'')==='retainer'?' / month':'').'</strong>';
+}
 function dx_payment_terms($state) {
+ if(!empty($state['service_estimates'])){
+  $terms=[];foreach($state['service_estimates'] as $entry)$terms[]=$entry['title'].(!empty($entry['project'])?' ('.$entry['project'].')':'').': '.dx_payment_terms($entry['state']);
+  return implode(' ', $terms);
+ }
+
  $p=dx_payment_schedule($state);$money=fn($c)=>'£'.number_format($c/100,2);
  if(($state['service']??'')==='retainer') return 'Nothing is payable now. Your retainer is billed monthly at £'.number_format((float)($state['total']??0),2).'. After our call and acceptance of the final quotation, the '.$money($p['deposit']).' deposit is credited toward your first monthly bill. Billing dates are confirmed in your final quotation.';
  $text='Nothing is payable now. After our initial call and your acceptance of the final quotation, a '.$money($p['deposit']).' deposit is due before work begins, included in your total. ';

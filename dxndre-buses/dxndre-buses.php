@@ -176,7 +176,18 @@ add_action('rest_api_init',function(){
         foreach(($data['stopPointSequences']??[]) as $seq) foreach(($seq['stopPoint']??[]) as $s) $stops[$s['id']]=['id'=>$s['id'],'name'=>$s['name'],'lat'=>$s['lat']??null,'lon'=>$s['lon']??null];
         $branches=[];
         foreach(($data['orderedLineRoutes']??[]) as $branch) $branches[]=html_entity_decode($branch['name']??'',ENT_QUOTES|ENT_HTML5,'UTF-8');
-        return ['id'=>$id,'name'=>strtoupper($id),'direction'=>$dir,'description'=>$data['lineName']??strtoupper($id),'branches'=>$branches,'stops'=>array_values($stops),'serviceType'=>dxb_service_type($id,array_values($stops)),'source'=>'TfL','retrieved'=>gmdate('c')];
+        $paths=[];
+        foreach(($data['lineStrings']??[]) as $line){
+            $decoded=is_string($line)?json_decode($line,true):$line;
+            if(!is_array($decoded))continue;
+            foreach($decoded as $path){
+                if(!is_array($path))continue;
+                $points=[];
+                foreach($path as $point)if(is_array($point)&&count($point)>=2&&is_numeric($point[0])&&is_numeric($point[1]))$points[]=[(float)$point[1],(float)$point[0]];
+                if(count($points)>1)$paths[]=$points;
+            }
+        }
+        return ['id'=>$id,'name'=>strtoupper($id),'direction'=>$dir,'description'=>$data['lineName']??strtoupper($id),'branches'=>$branches,'stops'=>array_values($stops),'paths'=>$paths,'serviceType'=>dxb_service_type($id,array_values($stops)),'source'=>'TfL','retrieved'=>gmdate('c')];
     }]);
     register_rest_route('dx-buses/v1','/arrivals/(?P<route>[a-zA-Z0-9]{1,6})/(?P<stop>[a-zA-Z0-9]{5,30})',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>function($r){
         $id=strtolower($r['route']); $valid=dxb_route_exists($id); if(is_wp_error($valid)) return $valid;
