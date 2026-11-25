@@ -4,11 +4,11 @@
 		lastFocus = null;
 	const lightbox = $('#dxb-lightbox');
 	function matchesPhoto(card, filter) {
- const route=card.dataset.photoRoute.toUpperCase(),scenery=card.dataset.photoScenery||'';
+ const route=card.dataset.photoRoute.toUpperCase(),scenery=card.dataset.photoScenery||'',isBus=Boolean(route)||card.dataset.photoSubject==='buses';
  if(filter==='all')return true;
- if(filter==='buses')return Boolean(route);
- if(filter==='scenery')return !route;
- if(filter.startsWith('scenery-'))return !route&&scenery===filter.slice(8);
+ if(filter==='buses')return isBus;
+ if(filter==='scenery')return !isBus;
+ if(filter.startsWith('scenery-'))return !isBus&&scenery===filter.slice(8);
  if(filter==='night')return /^N\d/.test(route);
  if(filter==='lettered')return /[A-Z]/.test(route)&&!/^N\d/.test(route);
  if(filter.startsWith('range-')){const min=Number(filter.slice(6));return /^\d+$/.test(route)&&Number(route)>=min&&(min===401||Number(route)<min+100);}

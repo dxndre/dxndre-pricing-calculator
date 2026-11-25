@@ -402,7 +402,8 @@
 			jump.add(new Option(stepLookup[key]?.querySelector('.step-title')?.textContent.trim() || key, String(index)));
 		});
 		jump.hidden = currentStepIndex === 0;
-		calculator.querySelector('[data-restart-calculator]').hidden = !state.service_category;
+		const hasAnswers=['scope','type','timeline','photo_type','retainer_level','retainer_turnaround','retainer_commitment','client_name','client_company'].some(key=>!!state[key])||['features','extras','retainer_areas','retainer_addons'].some(key=>state[key]?.length);
+		calculator.querySelector('[data-restart-calculator]').hidden = !hasAnswers;
 		saveConfiguration();
 	};
 
@@ -776,11 +777,9 @@
 		if (navigated && heading) {
 			heading.tabIndex = -1;
 			heading.focus({preventScroll:true});
-			const bounds = heading.getBoundingClientRect();
-			const clearance = Math.max(0, document.querySelector('#header')?.getBoundingClientRect().bottom || 0);
-			if (bounds.top < clearance || bounds.bottom > innerHeight - 120) {
-				heading.scrollIntoView({block:'start', behavior:'instant'});
-			}
+			const clearance = Math.max(0, document.querySelector('#header')?.getBoundingClientRect().height || 0);
+			const top=calculator.getBoundingClientRect().top+window.scrollY-clearance-16;
+			window.scrollTo({top:Math.max(0,top),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
 			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
 				target.animate([{opacity:.55},{opacity:1}], {duration:180, easing:'ease-out'});
 				target.querySelectorAll('.options-group > label, .options-group > .service-option').forEach((option, index) => {
@@ -1667,7 +1666,7 @@
 			for (const [value, text] of [['same','One project — reuse shared answers'],['different','Several projects — assign each service below']]) {
 				const label = document.createElement('label'); const input = document.createElement('input'); input.type='radio'; input.name='project_grouping'; input.value=value; input.checked=projectData.mode===value;
 				input.addEventListener('change',()=>{ projectData.mode=value; projectData.accepted=''; saveProjects(); renderProjects(); });
-				label.append(input,document.createTextNode(text)); panel.append(label);
+				label.className='calculator-project-choice';const caption=document.createElement('span');caption.textContent=text;label.append(input,caption); panel.append(label);
 			}
 			if(projectData.mode==='different') items.forEach(item=>{
 				const label=document.createElement('label'); label.textContent=titleFor(item.slug)+' — Project Name';
@@ -1872,8 +1871,8 @@
 			element.animate([{opacity:0, transform:'translateY(16px)'},{opacity:1, transform:'translateY(0)'}], {duration:600,delay:Math.min(index*55,440),fill:'backwards',easing:'cubic-bezier(.22,1,.36,1)'});
 		});
 	};
-	if (getCurrentStepKey() === 'category') {
-		const splash = document.createElement('div');
+	if (getCurrentStepKey() === 'category' || document.querySelector('.dx-calculator-splash')) {
+		const splash = document.querySelector('.dx-calculator-splash') || document.createElement('div');
 		splash.className = 'dx-calculator-splash';
 		splash.setAttribute('role', 'status');
 		splash.innerHTML = '<div class="dx-calculator-splash__content"><span class="dx-calculator-splash__brand">DX.</span><p class="dx-calculator-splash__eyebrow">YOUR NEXT CHAPTER</p><h2>Pricing<br><span>Calculator</span></h2><div class="dx-calculator-splash__track" aria-hidden="true"><span></span></div><p class="dx-calculator-splash__status">Preparing your project space</p></div>';
@@ -1885,11 +1884,12 @@
 			// Begin the entrance while the opaque splash still covers the calculator.
 			// Starting after its fade exposed settled content, then hid it for a second entrance.
 			revealCalculator();
+			document.documentElement.classList.remove('dx-calculator-boot');
 			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) await splash.animate([{opacity:1},{opacity:0}],{duration:300,easing:'ease-out',fill:'forwards'}).finished.catch(()=>{});
 			splash.remove();
 			calculator.inert = false;
 			calculator.dataset.splashDuration = String(performance.now()-started);
 		});
-	} else revealCalculator();
+	} else {document.documentElement.classList.remove('dx-calculator-boot');revealCalculator();}
 
 })();

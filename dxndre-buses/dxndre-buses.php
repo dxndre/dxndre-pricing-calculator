@@ -19,7 +19,7 @@ function dxb_photos() {
     foreach (get_posts(['post_type'=>'dx_bus_photo','numberposts'=>-1,'post_status'=>'publish']) as $p) {
         if(is_page('buses') && !dxb_meta($p->ID,'dxb_route')) continue;
         $aid=get_post_thumbnail_id($p); if (!$aid) continue; $seen[$aid]=true;
-        $items[]=['id'=>$aid,'title'=>$p->post_title,'route'=>strtoupper(dxb_meta($p->ID,'dxb_route')),'image'=>wp_get_attachment_image_url($aid,'large'),'full'=>wp_get_attachment_image_url($aid,'full'),'caption'=>wp_strip_all_tags($p->post_excerpt ?: $p->post_content),'operator'=>dxb_meta($p->ID,'dxb_operator'),'vehicle'=>dxb_meta($p->ID,'dxb_vehicle'),'date'=>dxb_meta($p->ID,'dxb_date'),'location'=>dxb_meta($p->ID,'dxb_location'),'scenery'=>dxb_meta($p->ID,'dxb_scenery'),'bad'=>dxb_meta($p->ID,'dxb_bad')==='1','captured'=>!empty(wp_get_attachment_metadata($aid)['image_meta']['created_timestamp'])?gmdate('Y-m-d',(int)wp_get_attachment_metadata($aid)['image_meta']['created_timestamp']):dxb_meta($p->ID,'dxb_date'),'technical'=>dxb_photo_technical($aid),'alt'=>get_post_meta($aid,'_wp_attachment_image_alt',true) ?: $p->post_title];
+        $items[]=['id'=>$aid,'title'=>$p->post_title,'route'=>strtoupper(dxb_meta($p->ID,'dxb_route')),'image'=>wp_get_attachment_image_url($aid,'large'),'full'=>wp_get_attachment_image_url($aid,'full'),'caption'=>wp_strip_all_tags($p->post_excerpt ?: $p->post_content),'operator'=>dxb_meta($p->ID,'dxb_operator'),'vehicle'=>dxb_meta($p->ID,'dxb_vehicle'),'date'=>dxb_meta($p->ID,'dxb_date'),'location'=>dxb_meta($p->ID,'dxb_location'),'scenery'=>dxb_meta($p->ID,'dxb_scenery'),'subject'=>dxb_meta($p->ID,'dxb_subject'),'bad'=>dxb_meta($p->ID,'dxb_bad')==='1','captured'=>!empty(wp_get_attachment_metadata($aid)['image_meta']['created_timestamp'])?gmdate('Y-m-d',(int)wp_get_attachment_metadata($aid)['image_meta']['created_timestamp']):dxb_meta($p->ID,'dxb_date'),'technical'=>dxb_photo_technical($aid),'alt'=>get_post_meta($aid,'_wp_attachment_image_alt',true) ?: $p->post_title];
     }
     foreach (dxb_journeys() as $j) {
         if (!$j['image_id'] || isset($seen[$j['image_id']])) continue;
@@ -40,6 +40,7 @@ add_action('add_meta_boxes',function(){
         wp_nonce_field('dxb_photo_save','dxb_photo_nonce');
         echo '<p>Set the photograph as the featured image. Published photographs appear automatically on Photography. Add a route to also include them in the bus archive.</p>';
         echo '<p><label><input type="checkbox" name="dxb_bad" value="1" '.checked(dxb_meta($p->ID,'dxb_bad'),'1',false).'> 💩 Bad photo — replacement planned</label></p>';
+        echo '<p><label>Subject<br><select name="dxb_subject"><option value="">General photography</option><option value="buses" '.selected(dxb_meta($p->ID,'dxb_subject'),'buses',false).'>Buses (route optional)</option></select></label></p>';
         echo '<p><label>Scenery category<br><select name="dxb_scenery"><option value="">Not categorised</option>'; foreach(['city'=>'City','suburbs'=>'Suburbs','rural'=>'Rural','coast'=>'Coast'] as $value=>$label) echo '<option value="'.esc_attr($value).'" '.selected(dxb_meta($p->ID,'dxb_scenery'),$value,false).'>'.esc_html($label).'</option>'; echo '</select></label></p>';
         foreach(['route'=>'Route (e.g. N8)','operator'=>'Operator when photographed','vehicle'=>'Registration / fleet number','date'=>'Date photographed','location'=>'Location'] as $key=>$label) {
             echo '<p><label>'.esc_html($label).'<br><input style="width:100%" name="dxb_'.esc_attr($key).'" type="'.($key==='date'?'date':'text').'" value="'.esc_attr(dxb_meta($p->ID,'dxb_'.$key)).'"></label></p>';
@@ -49,6 +50,7 @@ add_action('add_meta_boxes',function(){
 add_action('save_post_dx_bus_photo',function($id){
     if (!isset($_POST['dxb_photo_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['dxb_photo_nonce'])),'dxb_photo_save') || !current_user_can('edit_post',$id) || wp_is_post_revision($id) || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE)) return;
     $scenery=sanitize_key(wp_unslash($_POST['dxb_scenery']??'')); update_post_meta($id,'dxb_scenery',in_array($scenery,['city','suburbs','rural','coast'],true)?$scenery:'');
+    update_post_meta($id,'dxb_subject',($_POST['dxb_subject']??'')==='buses'?'buses':'');
     update_post_meta($id,'dxb_bad',isset($_POST['dxb_bad'])?'1':'');
     foreach(['route','operator','vehicle','date','location'] as $key) if(isset($_POST['dxb_'.$key])) update_post_meta($id,'dxb_'.$key,sanitize_text_field(wp_unslash($_POST['dxb_'.$key])));
 });

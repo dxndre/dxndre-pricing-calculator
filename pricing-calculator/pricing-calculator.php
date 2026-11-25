@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DXNDRE Pricing Calculator
  * Description: Multi-step project pricing calculator
- * Version: 3.0.0
+ * Version: 3.0.1
  */
 
 if (!defined('ABSPATH')) exit;
@@ -517,3 +517,7 @@ register_activation_hook(__FILE__, function () {
 	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	dbDelta($sql);
 });
+// Gate first paint before footer scripts, with the splash already present in the initial HTML.
+function dx_calculator_is_page(){ $post=get_queried_object();return $post instanceof WP_Post && has_shortcode($post->post_content,'pricing_calculator'); }
+add_action('wp_head',function(){if(!dx_calculator_is_page())return;echo '<script>document.documentElement.classList.add("dx-calculator-boot");</script><style>html.dx-calculator-boot #main{visibility:hidden!important}.dx-calculator-splash{position:fixed;inset:0;z-index:2147483000;background:#09110e;display:grid;place-items:center;color:#e5c276}</style><noscript><style>html.dx-calculator-boot #main{visibility:visible!important}.dx-calculator-splash{display:none!important}</style></noscript>';},1);
+add_action('wp_body_open',function(){if(!dx_calculator_is_page())return;echo '<div class="dx-calculator-splash" role="status"><div class="dx-calculator-splash__content"><span class="dx-calculator-splash__brand">DX.</span><p class="dx-calculator-splash__eyebrow">YOUR NEXT CHAPTER</p><h2>Pricing<br><span>Calculator</span></h2><div class="dx-calculator-splash__track" aria-hidden="true"><span></span></div><p class="dx-calculator-splash__status">Preparing your project space</p></div></div>';},1);
