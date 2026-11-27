@@ -1,0 +1,6 @@
+{
+  "publish_marks_dirty": true,
+  "published_fixture_in_dataset": true,
+  "unpublish_fails_closed_and_purges_history": true,
+  "unpublished_fixture_removed": true
+}

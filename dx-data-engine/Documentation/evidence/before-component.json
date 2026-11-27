@@ -1,0 +1,15 @@
+{
+  "cold_component": {
+    "ms": 92.17,
+    "queries": 85,
+    "peak_bytes": 142409728,
+    "html_bytes": 53712,
+    "gyms": 59,
+    "reviews": 63
+  },
+  "warm_component": {
+    "ms": 0.93,
+    "queries": 0,
+    "peak_bytes": 142409728
+  }
+}

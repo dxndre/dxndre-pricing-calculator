@@ -1,0 +1,29 @@
+{
+  "/wp-content/uploads/dx-data/gyms/manifest.json": {
+    "status": 200,
+    "cache": "public, max-age=60, must-revalidate",
+    "type": "application/json",
+    "robots": null,
+    "php": null
+  },
+  "/wp-content/uploads/dx-data/gyms/dataset.985baea892a0986640783e5a420b87ca8f0d39182b98e7a4057a8b8ac8962042.json": {
+    "status": 200,
+    "cache": "public, max-age=31536000, immutable",
+    "type": "application/json",
+    "robots": "noindex",
+    "php": null
+  },
+  "/wp-content/uploads/dx-data/gyms/dataset.0000000000000000000000000000000000000000000000000000000000000000.json": {
+    "status": 410,
+    "cache": "no-store",
+    "type": "text/html",
+    "robots": null,
+    "php": null
+  },
+  "missingShell": {
+    "status": 503,
+    "cache": "no-store",
+    "php": null,
+    "body": "<!doctype html><html lang=\"en\"><title>Information temporarily unavailable</title><h1>Taking a short pause.</h1><p>Please return shortly.</p></html>"
+  }
+}

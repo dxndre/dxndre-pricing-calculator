@@ -45,7 +45,7 @@
 		window.dxSetPhoto?.($('#dxb-lightbox-image'), p);
 		$('#dxb-lightbox-route').textContent = p.route
 			? `Route ${p.route}`
-			: 'Bus photography';
+			: p.subject==='buses' ? 'Bus photography' : p.scenery ? 'Scenery photography' : 'Photography';
 		$('#dxb-lightbox-title').textContent = p.title;
 		$('#dxb-lightbox-caption').textContent = p.caption;
 		$('#dxb-lightbox-meta').textContent = [
@@ -71,7 +71,7 @@
         const gps=p.technical?.gps;
         if(gps){
             window.dxRenderPhotoMap?.(map,gps,p);
-        } else if(p.location){ const label=text('p','📍 '+p.location);label.className='dx-photo-location';map.append(label); }
+        } else { const label=text('p',p.location || 'Location not recorded for this photograph.');label.className='dx-photo-location';map.append(label); }
         $('#dxb-lightbox-count').textContent = `${photoIndex + 1} / ${
 			DXB.photos.length
 		}`;

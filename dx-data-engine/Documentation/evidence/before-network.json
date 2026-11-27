@@ -1,0 +1,10 @@
+{
+  "initial_to_actions_ms": 5118,
+  "dynamic_interaction_requests": 4,
+  "requests": [
+    "http://dxndre.local/wp-json/dxndre/v1/gym-dashboard?view=league&sort=name&compare=",
+    "http://dxndre.local/wp-json/dxndre/v1/gym-dashboard?view=explorer&compare=",
+    "http://dxndre.local/wp-json/dxndre/v1/gym-dashboard?view=explorer&compare=836",
+    "http://dxndre.local/wp-json/dxndre/v1/gym-dashboard?view=explorer&q&chain&location&facility&price&open24&sort=overall&page=2&compare=836&display=map"
+  ]
+}

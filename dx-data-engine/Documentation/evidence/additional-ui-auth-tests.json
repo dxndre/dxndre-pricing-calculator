@@ -1,0 +1,15 @@
+{
+  "tests": {
+    "replace comparison selection": "PASS",
+    "share uses fragment and three gyms": "PASS",
+    "finder steps and results preserved": "PASS",
+    "light theme visible and persisted": "PASS",
+    "Business HQ data console renders for administrator": "PASS",
+    "missing administrator nonce rejected": "PASS",
+    "authenticated and anonymous public shell identical": "PASS",
+    "PHP test harness unavailable over HTTP": "PASS",
+    "pricing calculator remains available": "PASS"
+  },
+  "passed": 9,
+  "total": 9
+}

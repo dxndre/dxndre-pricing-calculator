@@ -1,0 +1,74 @@
+{
+  "static": {
+    "status": 200,
+    "ms": 155.59,
+    "bytes": 109386,
+    "headers": {
+      "cache-control": "public, max-age=60, must-revalidate",
+      "connection": "keep-alive",
+      "content-encoding": "gzip",
+      "content-type": "text/html",
+      "date": "Fri, 27 Nov 2026 17:44:55 GMT",
+      "etag": "W/\"6b09be4b-1ab4a\"",
+      "last-modified": "Fri, 27 Nov 2026 17:30:51 GMT",
+      "server": "nginx/1.26.1",
+      "transfer-encoding": "chunked",
+      "vary": "Accept-Encoding",
+      "x-content-type-options": "nosniff"
+    }
+  },
+  "canonical": {
+    "status": 200,
+    "ms": 9.66,
+    "bytes": 109386,
+    "headers": {
+      "cache-control": "public, max-age=60, must-revalidate",
+      "connection": "keep-alive",
+      "content-encoding": "gzip",
+      "content-type": "text/html",
+      "date": "Fri, 27 Nov 2026 17:44:55 GMT",
+      "etag": "W/\"6b09be4b-1ab4a\"",
+      "last-modified": "Fri, 27 Nov 2026 17:30:51 GMT",
+      "server": "nginx/1.26.1",
+      "transfer-encoding": "chunked",
+      "vary": "Accept-Encoding",
+      "x-content-type-options": "nosniff",
+      "x-dx-data-shell": "nginx-static"
+    }
+  },
+  "querySameShell": true,
+  "etag": 304,
+  "methodPost": 405,
+  "retiredREST": 410,
+  "unauthorisedAdmin": 400,
+  "boundedConcurrency": [
+    {
+      "status": 200,
+      "ms": 24.03
+    },
+    {
+      "status": 200,
+      "ms": 32.52
+    },
+    {
+      "status": 200,
+      "ms": 30.34
+    }
+  ],
+  "/": {
+    "status": 200,
+    "bytes": 208925
+  },
+  "/buses/": {
+    "status": 200,
+    "bytes": 416410
+  },
+  "/fitness/": {
+    "status": 200,
+    "bytes": 155442
+  },
+  "/calculator/": {
+    "status": 404,
+    "bytes": 91337
+  }
+}

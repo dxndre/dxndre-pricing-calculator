@@ -264,6 +264,8 @@ function dxb_photo_technical($aid) {
  $bytes = (int) ($meta['filesize'] ?? 0);
  if (!$bytes && ($file = get_attached_file($aid))) $bytes = wp_filesize($file);
  if ($bytes > 0) $out['File size'] = size_format($bytes, 1);
+ foreach(['Camera'=>'camera','Lens'=>'lens','Focal length'=>'focal','Aperture'=>'aperture','ISO'=>'iso','Shutter'=>'shutter','Taken'=>'taken'] as $label=>$key){$manual=get_post_meta($aid,'_dx_photo_'.$key,true);if($manual!=='')$out[$label]=$manual;elseif(empty($out[$label]))$out[$label]='Not recorded';}
+ $mime=get_post_mime_type($aid);if($mime)$out['Format']=strtoupper(str_replace('image/','',$mime));
  $gps=get_post_meta($aid,'dxb_gps',true);if($gps)$out['gps']=$gps;
  return $out;
 }
@@ -278,3 +280,7 @@ add_filter('wp_generate_attachment_metadata',function($metadata,$aid){
   update_post_meta($aid,'dxb_gps',['lat'=>$d($g['GPSLatitude'])*($g['GPSLatitudeRef']==='S'?-1:1),'lon'=>$d($g['GPSLongitude'])*($g['GPSLongitudeRef']==='W'?-1:1)]);
  }return $metadata;
 },10,2);
+
+// Optional documentary details remain editable when compressed files have no EXIF.
+add_filter('attachment_fields_to_edit',function($fields,$post){if(!wp_attachment_is_image($post->ID))return $fields;foreach(['camera'=>'Camera','lens'=>'Lens','focal'=>'Focal length','aperture'=>'Aperture','iso'=>'ISO','shutter'=>'Shutter speed','taken'=>'Date / time photographed'] as $key=>$label)$fields['dx_photo_'.$key]=['label'=>$label,'input'=>'text','value'=>get_post_meta($post->ID,'_dx_photo_'.$key,true),'helps'=>'Optional. Use recorded details only.'];$gps=get_post_meta($post->ID,'dxb_gps',true);foreach(['lat'=>'Latitude','lon'=>'Longitude'] as $key=>$label)$fields['dx_photo_'.$key]=['label'=>$label,'input'=>'text','value'=>is_array($gps)?($gps[$key]??''):'','helps'=>'Optional photograph location for its map.'];return $fields;},10,2);
+add_filter('attachment_fields_to_save',function($post,$attachment){foreach(['camera','lens','focal','aperture','iso','shutter','taken'] as $key)if(isset($attachment['dx_photo_'.$key]))update_post_meta($post['ID'],'_dx_photo_'.$key,sanitize_text_field($attachment['dx_photo_'.$key]));if(isset($attachment['dx_photo_lat'],$attachment['dx_photo_lon'])){$lat=trim($attachment['dx_photo_lat']);$lon=trim($attachment['dx_photo_lon']);if($lat===''&&$lon==='')delete_post_meta($post['ID'],'dxb_gps');elseif(is_numeric($lat)&&is_numeric($lon)&&abs((float)$lat)<=90&&abs((float)$lon)<=180)update_post_meta($post['ID'],'dxb_gps',['lat'=>(float)$lat,'lon'=>(float)$lon]);}return $post;},10,2);

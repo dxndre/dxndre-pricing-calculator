@@ -1,0 +1,17 @@
+{
+  "tests": {
+    "in-flight and memory deduplication": "PASS",
+    "stale cache available during network failure": "PASS",
+    "maintenance tombstone defeats cached copy": "PASS",
+    "corrupted JSON fails without cache": "PASS",
+    "schema mismatch fails without cache": "PASS",
+    "missing manifest stops after bounded retry": "PASS",
+    "timeout bounded": "PASS",
+    "caller cancellation is immediate": "PASS",
+    "blocked map library leaves usable fallback": "PASS",
+    "incremental results append locally": "PASS",
+    "client JavaScript failure keeps readable overview": "PASS"
+  },
+  "passed": 11,
+  "total": 11
+}

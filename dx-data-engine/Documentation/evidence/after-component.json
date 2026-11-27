@@ -1,0 +1,22 @@
+{
+  "compatibility_component": {
+    "ms": 11.95,
+    "queries": 0,
+    "peak_bytes": 125632512,
+    "gyms": 59,
+    "reviews": 63,
+    "html_bytes": 53712
+  },
+  "controlled_generation": {
+    "ms": 478.42,
+    "queries": 78,
+    "peak_bytes": 148701184,
+    "unchanged": true
+  },
+  "publication": {
+    "json_bytes": 1843343,
+    "gzip_bytes": 124393,
+    "shell_bytes": 109386,
+    "manifest_bytes": 472
+  }
+}
